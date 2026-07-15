@@ -1,4 +1,5 @@
 import React from "react";
+import { APP_VERSION } from "@architect-ai/shared";
 
 export default function Header() {
   return (
@@ -6,7 +7,7 @@ export default function Header() {
       <div className="flex items-center gap-3">
         <span className="font-bold text-lg text-primary">ArchitectAI</span>
         <span className="bg-zinc-100 text-zinc-800 text-xs px-2 py-0.5 rounded-full font-medium">
-          v1.0.0
+          v{APP_VERSION}
         </span>
       </div>
       <div className="flex items-center gap-4">
