@@ -35,24 +35,24 @@ ArchitectAI adopts a **Modular Monolith** pattern inside a monorepo workspace. T
 
 ```mermaid
 graph TD
-    subgraph Frontend [Next.js App Router]
-        UI[React 19 Pages]
-        Axios[Axios client]
+    subgraph Frontend ["Next.js App Router"]
+        UI["React 19 Pages"]
+        Axios["Axios client"]
         UI --> Axios
     end
 
-    subgraph Shared [Domain Common]
-        SharedLib[@architect-ai/shared]
+    subgraph Shared ["Domain Common"]
+        SharedLib["@architect-ai/shared"]
     end
 
-    subgraph Backend [NestJS v10 API]
-        App[App Module]
-        Health[Health Module]
-        Auth[Auth Module]
-        Users[Users Module]
-        Repo[Repository Module]
-        PrismaService[Prisma Client Service]
-        LoggerService[Winston Logger Wrapper]
+    subgraph Backend ["NestJS v10 API"]
+        App["App Module"]
+        Health["Health Module"]
+        Auth["Auth Module"]
+        Users["Users Module"]
+        Repo["Repository Module"]
+        PrismaService["Prisma Client Service"]
+        LoggerService["Winston Logger Wrapper"]
 
         App --> Health
         App --> Auth
@@ -62,17 +62,17 @@ graph TD
         App --> LoggerService
     end
 
-    subgraph Persistence [Infra Containers]
-        Postgres[(PostgreSQL)]
-        Redis[(Redis Cache)]
+    subgraph Persistence ["Infra Containers"]
+        Postgres[("PostgreSQL")]
+        Redis[("Redis Cache")]
     end
 
     Axios -->|REST API HTTP| App
     PrismaService -->|ORM SQL| Postgres
     App -->|Cache/Queues| Redis
 
-    UI -. -->|Imports| SharedLib
-    App -. -->|Imports| SharedLib
+    UI -.->|Imports| SharedLib
+    App -.->|Imports| SharedLib
 ```
 
 ---
