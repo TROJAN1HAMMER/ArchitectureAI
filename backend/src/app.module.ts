@@ -10,6 +10,9 @@ import { AuthModule } from "./modules/auth/auth.module.js";
 import { UsersModule } from "./modules/users/users.module.js";
 import { RepositoryModule } from "./modules/repository/repository.module.js";
 
+import { APP_INTERCEPTOR } from "@nestjs/core";
+import { TransformInterceptor } from "./common/interceptors/transform.interceptor.js";
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,6 +26,12 @@ import { RepositoryModule } from "./modules/repository/repository.module.js";
     AuthModule,
     UsersModule,
     RepositoryModule,
+  ],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformInterceptor,
+    },
   ],
 })
 export class AppModule {}

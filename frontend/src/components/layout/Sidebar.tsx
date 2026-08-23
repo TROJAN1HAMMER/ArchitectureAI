@@ -3,9 +3,7 @@ import Link from "next/link";
 
 export default function Sidebar() {
   const menuItems = [
-    { label: "Home", path: "/" },
     { label: "Dashboard", path: "/dashboard" },
-    { label: "Login", path: "/login" },
     { label: "Repositories", path: "/repositories" },
     { label: "Settings", path: "/settings" },
   ];
