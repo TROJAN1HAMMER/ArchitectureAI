@@ -9,12 +9,12 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 border-r border-zinc-200 bg-white h-[calc(100vh-4rem)] flex flex-col p-4 gap-2">
+    <aside className="w-64 border-r border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 h-[calc(100vh-4rem)] flex flex-col p-4 gap-2 transition-colors">
       {menuItems.map((item) => (
         <Link
           key={item.path}
           href={item.path}
-          className="px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 transition-colors"
+          className="px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors"
         >
           {item.label}
         </Link>

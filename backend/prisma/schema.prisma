@@ -12,18 +12,33 @@ enum Role {
   ADMIN
 }
 
+enum SyncStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum SyncTrigger {
+  MANUAL
+  OAUTH
+  SYSTEM
+}
+
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  name         String?
-  passwordHash String
-  role         Role      @default(USER)
-  isActive     Boolean   @default(true)
-  lastLoginAt  DateTime?
-  lastSeenAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  sessions     Session[]
+  id            String                 @id @default(uuid())
+  email         String                 @unique
+  name          String?
+  passwordHash  String
+  role          Role                   @default(USER)
+  isActive      Boolean                @default(true)
+  lastLoginAt   DateTime?
+  lastSeenAt    DateTime?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  sessions      Session[]
+  gitHubAccount GitHubAccount?
+  connections   RepositoryConnection[]
 
   @@index([email])
 }
@@ -42,4 +57,73 @@ model Session {
 
   @@index([userId])
   @@index([hashedRefreshToken])
+}
+
+model GitHubAccount {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  githubUserId         String   @unique
+  username             String
+  email                String?
+  profileUrl           String?
+  encryptedAccessToken String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId])
+  @@index([githubUserId])
+}
+
+model Repository {
+  id                 String                 @id @default(uuid())
+  githubRepositoryId String                 @unique
+  ownerLogin         String
+  name               String
+  fullName           String
+  description        String?
+  htmlUrl            String
+  defaultBranch      String
+  visibility         String
+  isPrivate          Boolean
+  connectedAt        DateTime               @default(now())
+  lastSyncedAt       DateTime?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  connections        RepositoryConnection[]
+  syncs              RepositorySync[]
+
+  @@index([githubRepositoryId])
+}
+
+model RepositoryConnection {
+  id             String     @id @default(uuid())
+  userId         String
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repositoryId   String
+  repository     Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  connectedAt    DateTime   @default(now())
+  disconnectedAt DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([userId, repositoryId])
+  @@index([userId])
+  @@index([repositoryId])
+}
+
+model RepositorySync {
+  id           String      @id @default(uuid())
+  repositoryId String
+  repository   Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  status       SyncStatus
+  trigger      SyncTrigger
+  startedAt    DateTime    @default(now())
+  completedAt  DateTime?
+  errorMessage String?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+
+  @@index([repositoryId])
+  @@index([status])
 }

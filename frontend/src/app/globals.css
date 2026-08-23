@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Light theme (default) ── */
 :root {
   --background: #fafafa;
   --foreground: #18181b;
@@ -11,8 +12,23 @@
   --primary-foreground: #f8fafc;
 }
 
+/* ── Dark theme ── */
+.dark {
+  --background: #18181b;
+  --foreground: #fafafa;
+  --card: #1f2937;
+  --border: #374151;
+  --primary: #f8fafc;
+  --primary-foreground: #0f172a;
+}
+
+/* ── Base styles ── */
+html,
 body {
   color: var(--foreground);
-  background: var(--background);
+  background-color: var(--background);
   font-family: ui-sans-serif, system-ui, sans-serif;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }

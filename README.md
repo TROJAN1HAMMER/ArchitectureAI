@@ -24,8 +24,8 @@ ArchitectAI aims to bridge the gap between abstract software architecture and ac
 
 ## Current Status
 
-**Active Version**: `v0.2.5-platform-infrastructure`  
-The project is currently in **Phase 2.5: Platform Infrastructure**. The system features a production-ready authentication and platform foundation incorporating:
+**Active Version**: `v0.1.0-foundation`  
+The project has completed **Phase 1**, **Phase 2**, and the foundational layer of **Phase 3**. The system features a production-ready authentication foundation, platform infrastructure, GitHub OAuth integration scaffolding, and a fully functional dark/light theme UI:
 
 - **Authentication Foundation**: OWASP-aligned `argon2id` passwords, short-lived (15-min) in-memory JWTs, 7-day rotated `HttpOnly` refresh cookies, and session-level database auditing.
 - **Central Redis Cache**: Global Redis connections via `ioredis` with exponential backoff retries and clean process shutdowns.
@@ -33,6 +33,8 @@ The project is currently in **Phase 2.5: Platform Infrastructure**. The system f
 - **Structured Logging**: Logging interceptors capturing HTTP method, path, response codes, and durations.
 - **Security Hardening**: Secure headers (Helmet) and strict comma-separated origins CORS checking.
 - **Health Checks**: Liveness and readiness endpoints checking Prisma DB and Redis cache availability status.
+- **GitHub Integration (Phase 3 Foundation)**: GitHub OAuth service, repository module scaffolding, AES-256 encrypted token storage, and Prisma migration for linked repositories.
+- **Dark / Light Theme**: Full site-wide theme toggling via `next-themes` with smooth animated transitions across all pages and components.
 
 ---
 
@@ -45,7 +47,9 @@ graph TD
     subgraph Frontend ["Next.js App Router"]
         UI["React 19 Pages"]
         Axios["Axios client"]
+        Theme["next-themes (Dark/Light)"]
         UI --> Axios
+        UI --> Theme
     end
 
     subgraph Shared ["Domain Common"]
@@ -58,6 +62,7 @@ graph TD
         Auth["Auth Module"]
         Users["Users Module"]
         Repo["Repository Module"]
+        GitHub["GitHub Module"]
         PrismaService["Prisma Client Service"]
         LoggerService["Winston Logger Wrapper"]
 
@@ -65,6 +70,7 @@ graph TD
         App --> Auth
         App --> Users
         App --> Repo
+        App --> GitHub
         App --> PrismaService
         App --> LoggerService
     end
@@ -78,8 +84,8 @@ graph TD
     PrismaService -->|ORM SQL| Postgres
     App -->|Cache/Queues| Redis
 
-    UI -.->|Imports| SharedLib
-    App -.->|Imports| SharedLib
+    UI -..->|Imports| SharedLib
+    App -..->|Imports| SharedLib
 ```
 
 ---
@@ -90,9 +96,11 @@ graph TD
 
 - **Next.js 15** (React 19, App Router)
 - **TypeScript** (Strict compiler mode)
-- **Tailwind CSS** (Utility styling)
+- **Tailwind CSS** (Utility styling, `darkMode: 'class'`)
+- **next-themes** (Dark / Light mode with system preference support)
 - **TanStack Query** (Client-side state & caching)
 - **Axios** (API requests)
+- **lucide-react** (Icon library)
 
 ### Backend
 
@@ -124,16 +132,16 @@ architect-ai/
 ├── frontend/               # Next.js client application
 │   ├── src/
 │   │   ├── app/            # App Router pages (/dashboard, /login, /repositories, /settings)
-│   │   ├── components/     # Layout shells (Header, Sidebar)
-│   │   ├── providers/      # Query client setup
+│   │   ├── components/     # Layout shells (Header, Sidebar, ThemeToggle)
+│   │   ├── providers/      # Query client & auth provider setup
 │   │   └── services/       # Central Axios api client instance
 │   └── tsconfig.json       # Extends root tsconfig.base.json
 │
 ├── backend/                # NestJS API application
-│   ├── prisma/             # Schema configuration and empty seed file
+│   ├── prisma/             # Schema, migrations, and seed file
 │   ├── src/
-│   │   ├── common/         # Zod configs, Winston loggers, exception filters
-│   │   ├── modules/        # Pre-registered boundaries (health, auth, users, repository)
+│   │   ├── common/         # Zod configs, Winston loggers, exception filters, encryption utils
+│   │   ├── modules/        # Domain boundaries (health, auth, users, repository, github)
 │   │   └── main.ts         # Server bootstrap, Swagger setup, pipes configuration
 │   └── tsconfig.json       # Extends root tsconfig.base.json
 │
@@ -184,11 +192,13 @@ pnpm install
 
 ### 4. Database Setup & Client Generation
 
-Start the containers and build the Prisma client schema mappings:
+Start the containers, run migrations, and seed the database:
 
 ```bash
 make docker-up
 pnpm --filter backend prisma:generate
+pnpm --filter backend prisma:migrate
+pnpm --filter backend prisma:seed
 ```
 
 ---
@@ -227,7 +237,7 @@ make docker-down     # Stops containers and clears networks
 
 The backend incorporates Swagger documentation automatically. Once the backend server is running, access the interactive API docs at:
 
-- **Swagger UI**: [http://localhost:3000/api/docs](http://localhost:3000/api/docs)
+- **Swagger UI**: [http://localhost:3001/api/docs](http://localhost:3001/api/docs)
 - **REST Prefix**: `/api/v1`
 
 ---
@@ -237,6 +247,7 @@ The backend incorporates Swagger documentation automatically. Once the backend s
 We track foundational tech decisions using Architecture Decision Records. Refer to:
 
 - [ADR-001: Architecture Foundation](docs/adr/ADR-001-architecture-foundation.md)
+- [ADR-003: GitHub Integration](docs/adr/ADR-003-github-integration.md)
 
 ---
 
@@ -269,8 +280,11 @@ Please follow the rules below when contributing to ArchitectAI:
 ## Development Progress
 
 - [x] **Phase 1** — Project Foundation
-- [ ] **Phase 2** — Authentication & Identity
-- [ ] **Phase 3** — GitHub Integration & Repository Management
+- [x] **Phase 2** — Authentication & Identity
+- [x] **Phase 2.5** — Platform Infrastructure (Redis, request correlation, health checks, security hardening)
+- [x] **Phase 3 (foundation)** — GitHub Integration & Repository Management (OAuth service, AES-256 token encryption, Prisma migration, repository module scaffolding)
+- [x] **UI** — Dark / Light theme toggle with system preference detection and smooth transitions
+- [ ] **Phase 3 (complete)** — Full GitHub OAuth flow & repository sync
 - [ ] **Phase 4** — Repository Intelligence Pipeline
 - [ ] **Phase 5** — Knowledge Graph
 - [ ] **Phase 6** — Embedding & Semantic Search

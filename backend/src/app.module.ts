@@ -9,6 +9,7 @@ import { HealthModule } from "./modules/health/health.module.js";
 import { AuthModule } from "./modules/auth/auth.module.js";
 import { UsersModule } from "./modules/users/users.module.js";
 import { RepositoryModule } from "./modules/repository/repository.module.js";
+import { GithubModule } from "./modules/github/github.module.js";
 import { RedisModule } from "./common/redis/redis.module.js";
 import { RequestContextModule } from "./common/request-context/request-context.module.js";
 import { RequestContextMiddleware } from "./common/request-context/request-context.middleware.js";
@@ -31,6 +32,7 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
     AuthModule,
     UsersModule,
     RepositoryModule,
+    GithubModule,
     RedisModule,
     RequestContextModule,
   ],

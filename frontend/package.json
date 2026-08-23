@@ -10,16 +10,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "^15.1.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "axios": "^1.7.2",
+    "@architect-ai/shared": "workspace:*",
     "@tanstack/react-query": "^5.50.1",
-    "lucide-react": "^0.395.0",
+    "axios": "^1.7.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.3.0",
-    "@architect-ai/shared": "workspace:*"
+    "lucide-react": "^1.33.0",
+    "next": "^15.1.0",
+    "next-themes": "^0.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.8",

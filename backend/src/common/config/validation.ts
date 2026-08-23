@@ -15,6 +15,10 @@ export const environmentSchema = z.object({
   REFRESH_TOKEN_EXPIRES_IN: z.string().default("7d"),
   FRONTEND_URL: z.string().url().default("http://localhost:3000"),
   CORS_ALLOWED_ORIGINS: z.string().default("http://localhost:3000"),
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
+  GITHUB_CALLBACK_URL: z.string().url().optional(),
+  GITHUB_OAUTH_ENCRYPTION_KEY: z.string().length(32).optional(),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
