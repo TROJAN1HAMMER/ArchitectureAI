@@ -1,5 +1,6 @@
 import { Injectable, LoggerService as NestLoggerService } from "@nestjs/common";
 import * as winston from "winston";
+import { RequestContextService } from "../request-context/request-context.service.js";
 
 @Injectable()
 export class LoggerService implements NestLoggerService {
@@ -21,7 +22,9 @@ export class LoggerService implements NestLoggerService {
               ({ timestamp, level, message, context, stack }) => {
                 const ctx = context ? ` [${context}]` : "";
                 const stk = stack ? `\n${stack}` : "";
-                return `[ArchitectAI] ${timestamp} ${level}:${ctx} ${message}${stk}`;
+                const requestId = RequestContextService.getRequestId();
+                const reqIdStr = requestId ? ` [requestId=${requestId}]` : "";
+                return `[ArchitectAI] ${timestamp} ${level}:${ctx}${reqIdStr} ${message}${stk}`;
               },
             ),
           ),

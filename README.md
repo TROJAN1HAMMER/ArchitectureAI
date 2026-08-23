@@ -24,8 +24,15 @@ ArchitectAI aims to bridge the gap between abstract software architecture and ac
 
 ## Current Status
 
-**Active Version**: `v0.1.0-foundation`  
-The project is currently in **Phase 1: Project Foundation**. The monorepo workspaces, core packages, Docker configuration, database schema layers, API routing, standard exception handling, and developer experience checks are fully initialized and validated.
+**Active Version**: `v0.2.5-platform-infrastructure`  
+The project is currently in **Phase 2.5: Platform Infrastructure**. The system features a production-ready authentication and platform foundation incorporating:
+
+- **Authentication Foundation**: OWASP-aligned `argon2id` passwords, short-lived (15-min) in-memory JWTs, 7-day rotated `HttpOnly` refresh cookies, and session-level database auditing.
+- **Central Redis Cache**: Global Redis connections via `ioredis` with exponential backoff retries and clean process shutdowns.
+- **Request Correlation**: Correlation IDs (`X-Request-ID`) mapped via `AsyncLocalStorage` and automatically printed in logs.
+- **Structured Logging**: Logging interceptors capturing HTTP method, path, response codes, and durations.
+- **Security Hardening**: Secure headers (Helmet) and strict comma-separated origins CORS checking.
+- **Health Checks**: Liveness and readiness endpoints checking Prisma DB and Redis cache availability status.
 
 ---
 

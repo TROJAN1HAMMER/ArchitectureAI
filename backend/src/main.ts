@@ -1,11 +1,11 @@
-import { NestFactory, HttpAdapterHost } from "@nestjs/core";
+import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module.js";
 import { LoggerService } from "./common/logger/logger.service.js";
-import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
 import { ConfigService } from "@nestjs/config";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -17,6 +17,23 @@ async function bootstrap() {
   // Connect Winston logger wrapper
   const logger = app.get(LoggerService);
   app.useLogger(logger);
+
+  // Register Helmet security headers with Swagger CSP compatibility
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: [`'self'`],
+          styleSrc: [`'self'`, `'unsafe-inline'`],
+          scriptSrc: [`'self'`, `'unsafe-inline'`, `'unsafe-eval'`],
+          imgSrc: [`'self'`, "data:", "validator.swagger.io"],
+        },
+      },
+    }),
+  );
+
+  // Enable Graceful Shutdown hooks
+  app.enableShutdownHooks();
 
   // Parse Cookie Headers
   app.use(cookieParser());
@@ -50,10 +67,6 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-
-  // Global Exceptions Filter
-  const httpAdapterHost = app.get(HttpAdapterHost);
-  app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost, logger));
 
   // Swagger Documentation
   const swaggerConfig = new DocumentBuilder()
