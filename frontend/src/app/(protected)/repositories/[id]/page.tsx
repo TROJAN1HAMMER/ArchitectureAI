@@ -27,6 +27,7 @@ import {
   SemanticSearchResults,
   SemanticSearchResultItem,
 } from "@/components/semantic-search/SemanticSearchResults";
+import { AIChat } from "@/components/ai/AIChat";
 
 interface RepositoryDetail {
   id: string;
@@ -69,8 +70,8 @@ export default function RepositoryDetailPage({
   const repositoryId = resolvedParams.id;
 
   const [activeTab, setActiveTab] = useState<
-    "files" | "graph" | "search" | "syncs"
-  >("search");
+    "ai" | "search" | "graph" | "files" | "syncs"
+  >("ai");
 
   const [repo, setRepo] = useState<RepositoryDetail | null>(null);
   const [files, setFiles] = useState<RepositoryFileNode[]>([]);
@@ -276,6 +277,17 @@ export default function RepositoryDetailPage({
       {/* Navigation Tabs */}
       <div className="flex border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto">
         <button
+          onClick={() => setActiveTab("ai")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+            activeTab === "ai"
+              ? "border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400 font-semibold"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          }`}
+        >
+          AI Assistant ✨
+        </button>
+
+        <button
           onClick={() => setActiveTab("search")}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
             activeTab === "search"
@@ -321,6 +333,12 @@ export default function RepositoryDetailPage({
       </div>
 
       {/* Tab Contents */}
+      {activeTab === "ai" && (
+        <div className="space-y-6">
+          <AIChat repositoryId={repo.id} />
+        </div>
+      )}
+
       {activeTab === "search" && (
         <div className="space-y-6">
           <SemanticIndexStatus statusData={semanticStatus} />

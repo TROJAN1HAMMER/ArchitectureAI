@@ -14,22 +14,22 @@ ArchitectAI is an AI-powered Engineering Intelligence & System Design Platform. 
 
 ## Vision
 
-ArchitectAI aims to bridge the gap between abstract software architecture and actual repository implementations. By modeling the codebase as a system design knowledge graph and semantic vector index, it provides engineers with:
+ArchitectAI aims to bridge the gap between abstract software architecture and actual repository implementations. By modeling the codebase as a system design knowledge graph, semantic vector index, and grounded AI assistant, it provides engineers with:
 
 1. **Automated Discovery**: Up-to-date visualization of system topologies, components, and service networks.
 2. **Semantic Search & Intelligence**: Vector similarity search over codebases with contextual snippet chunking and ownership security.
-3. **Quality Auditing**: AI-powered analysis of design patterns, modular boundaries, and architectural drift.
-4. **Studio Design**: Collaborative studio tools to mock and simulate changes before writing any code.
+3. **Grounded AI Repository Assistant**: Natural-language repository Q&A powered by RAG context combining vector search and knowledge graph relationships.
+4. **Quality Auditing**: AI-powered analysis of design patterns, modular boundaries, and architectural drift.
 
 ---
 
 ## Current Status
 
-**Active Version**: `v0.1.4-semantic-search`  
-The project has completed **Phases 1 through 6**. The system features a production-ready authentication foundation, platform infrastructure, GitHub OAuth integration, Redis concurrency locking, full repository metadata and file tree ingestion, PostgreSQL knowledge graph persistence, and a complete **Semantic Search Foundation**:
+**Active Version**: `v0.1.5-ai-rag-foundation`  
+The project has completed **Phases 1 through 7**. The system features a production-ready authentication foundation, platform infrastructure, GitHub OAuth integration, Redis concurrency locking, full repository metadata and file tree ingestion, PostgreSQL knowledge graph persistence, a complete **Semantic Search Foundation**, and an offline **AI Repository Understanding / RAG Foundation**:
 
 - **Authentication Foundation**: OWASP-aligned `argon2id` passwords, short-lived (15-min) in-memory JWTs, 7-day rotated `HttpOnly` refresh cookies, and session-level database auditing.
-- **Central Redis Cache & Coordination**: Global Redis connections via `ioredis` with exponential backoff retries, clean shutdowns, sync locks (`repository:sync-lock:<id>`), graph construction locks (`repository:graph-lock:<id>`), and semantic indexing locks (`repository:embedding-lock:<id>`).
+- **Central Redis Cache & Coordination**: Global Redis connections via `ioredis` with exponential backoff retries, clean shutdowns, sync locks (`repository:sync-lock:<id>`), graph construction locks (`repository:graph-lock:<id>`), semantic indexing locks (`repository:embedding-lock:<id>`), and AI request locks (`repository:ai-lock:<id>:<user>`).
 - **Request Correlation**: Correlation IDs (`X-Request-ID`) mapped via `AsyncLocalStorage` and automatically printed in logs.
 - **Structured Logging**: Logging interceptors capturing HTTP method, path, response codes, and durations.
 - **Security Hardening**: Secure headers (Helmet) and strict comma-separated origins CORS checking.
@@ -38,6 +38,7 @@ The project has completed **Phases 1 through 6**. The system features a producti
 - **Repository Intelligence Foundation (Phase 4)**: Normalized file tree ingestion (`RepositoryFile`), idempotent upserts, sync lifecycle tracking (`PENDING`/`RUNNING`/`SUCCESS`/`FAILED`), and REST endpoints for repository details, sync history, and tree navigation.
 - **Knowledge Graph Foundation (Phase 5)**: PostgreSQL-backed graph models (`GraphNode` and `GraphEdge`), `NodeType` and `EdgeType` enums, deterministic hierarchy creation, lightweight import/dependency extraction, graph neighborhood traversal API, and interactive UI graph inspector.
 - **Semantic Search Foundation (Phase 6)**: PostgreSQL pgvector storage, `Embedding` and `SemanticIndex` models, provider abstraction (`IEmbeddingProvider`), SHA-256 content hashing, idempotent indexing, file chunking, authenticated semantic search APIs, and frontend search interface.
+- **AI Repository Understanding / RAG Foundation (Phase 7)**: Bounded RAG pipeline (`QueryUnderstandingService`, `ContextRetrieverService`, `ContextRankerService`, `ContextBuilderService`, `RagService`), LLM provider abstraction (`ILLMProvider`, default offline `MockLLMProviderService`), prompt injection isolation, grounded source citations, persistent `Conversation` / `ConversationMessage` tracking, and interactive AI chat UI tab.
 - **Dark / Light Theme**: Full site-wide theme toggling via `next-themes` with smooth animated transitions across all pages and components.
 
 ---
@@ -55,11 +56,14 @@ graph TD
         TreeUI["RepositoryTree Component"]
         GraphUI["Knowledge Graph Inspector"]
         SearchUI["Semantic Search Bar & Results"]
+        AIChatUI["AI Assistant Chat & Sources"]
+
         UI --> Axios
         UI --> Theme
         UI --> TreeUI
         UI --> GraphUI
         UI --> SearchUI
+        UI --> AIChatUI
     end
 
     subgraph Shared ["Domain Common"]
@@ -75,8 +79,9 @@ graph TD
         RepoSync["RepositorySyncService"]
         GraphModule["KnowledgeGraphModule"]
         SemanticSearchModule["SemanticSearchModule"]
-        SemanticIndexer["SemanticIndexerService"]
-        EmbeddingService["EmbeddingService"]
+        AiModule["AiModule"]
+        RagService["RagService"]
+        LLMFactory["LLMProviderFactory"]
         GitHub["GitHub Module"]
         PrismaService["Prisma Client Service"]
         LoggerService["Winston Logger Wrapper"]
@@ -87,25 +92,26 @@ graph TD
         App --> Repo
         App --> GraphModule
         App --> SemanticSearchModule
+        App --> AiModule
         App --> GitHub
         App --> PrismaService
         App --> LoggerService
 
-        Repo --> RepoSync
-        RepoSync --> SemanticIndexer
-        SemanticSearchModule --> SemanticIndexer
-        SemanticSearchModule --> EmbeddingService
+        AiModule --> RagService
+        RagService --> LLMFactory
+        RagService --> SemanticSearchModule
+        RagService --> GraphModule
     end
 
     subgraph Persistence ["Infra Containers"]
-        Postgres[("PostgreSQL / pgvector (GraphNode, GraphEdge, Embedding)")]
-        Redis[("Redis (Sync, Graph, Embedding Locks EX 600 NX)")]
+        Postgres[("PostgreSQL / pgvector (GraphNode, GraphEdge, Embedding, Conversation)")]
+        Redis[("Redis (Sync, Graph, Embedding, AI Locks EX 60/600 NX)")]
     end
 
     Axios -->|REST API HTTP| App
     PrismaService -->|ORM SQL| Postgres
     RepoSync -->|Lock/Unlock| Redis
-    SemanticIndexer -->|Lock/Unlock| Redis
+    RagService -->|Lock/Unlock| Redis
 
     UI -..->|Imports| SharedLib
     App -..->|Imports| SharedLib
@@ -129,7 +135,7 @@ graph TD
 
 - **NestJS v10** (Module architecture, DI container)
 - **Prisma ORM** (Type-safe schemas & migrations)
-- **PostgreSQL / pgvector** (Core relational, graph, and vector database)
+- **PostgreSQL / pgvector** (Core relational, graph, vector, and conversation database)
 - **Winston** (Structured logging custom wrapper)
 - **Zod** (Bootstrap environments validation)
 - **Swagger** (Interactive API documentation)
@@ -142,16 +148,13 @@ graph TD
 
 ## Configuration Variables
 
-### Embedding Settings
+### AI & RAG Settings
 
-| Variable                  | Default                  | Description                                              |
-| :------------------------ | :----------------------- | :------------------------------------------------------- |
-| `EMBEDDING_PROVIDER`      | `mock`                   | Embedding provider selection (`mock`, `local`, `openai`) |
-| `EMBEDDING_MODEL`         | `text-embedding-3-small` | Active embedding model identifier                        |
-| `EMBEDDING_DIMENSIONS`    | `1536`                   | Vector embedding dimensions size                         |
-| `EMBEDDING_MAX_FILE_SIZE` | `524288`                 | Maximum file size in bytes to index (512 KB)             |
-| `EMBEDDING_CHUNK_SIZE`    | `1000`                   | Target chunk character length                            |
-| `EMBEDDING_CHUNK_OVERLAP` | `200`                    | Chunk overlap character count                            |
+| Variable            | Default      | Description                                                |
+| :------------------ | :----------- | :--------------------------------------------------------- |
+| `LLM_PROVIDER`      | `mock`       | Active LLM provider selection (`mock`, `openai`, `ollama`) |
+| `LLM_MODEL`         | `mock-model` | Active LLM model identifier                                |
+| `MAX_CONTEXT_CHARS` | `8000`       | Hard budget character limit for retrieved LLM context      |
 
 ---
 
@@ -171,6 +174,7 @@ The backend incorporates Swagger documentation automatically. Access interactive
 - [ADR-004: Repository Intelligence Foundation](docs/adr/ADR-004-repository-intelligence-foundation.md)
 - [ADR-005: Knowledge Graph Foundation](docs/adr/ADR-005-knowledge-graph-foundation.md)
 - [ADR-006: Semantic Search Foundation](docs/adr/ADR-006-semantic-search-foundation.md)
+- [ADR-007: AI Repository Understanding / RAG Foundation](docs/adr/ADR-007-ai-rag-foundation.md)
 
 ---
 
@@ -183,7 +187,7 @@ The backend incorporates Swagger documentation automatically. Access interactive
 - [x] **Phase 4** — Repository Intelligence Foundation
 - [x] **Phase 5** — Knowledge Graph Foundation
 - [x] **Phase 6** — Embedding & Semantic Search
-- [ ] **Phase 7** — AI Repository Chat / RAG Foundation
+- [x] **Phase 7** — AI Repository Chat / RAG Foundation
 - [ ] **Phase 8** — Architecture Discovery
 - [ ] **Phase 9** — System Design Studio
 - [ ] **Phase 10** — Architecture Review

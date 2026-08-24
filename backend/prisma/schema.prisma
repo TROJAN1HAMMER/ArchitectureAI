@@ -51,6 +51,11 @@ enum EdgeType {
   DEFINES
 }
 
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
 model User {
   id            String                 @id @default(uuid())
   email         String                 @unique
@@ -65,6 +70,7 @@ model User {
   sessions      Session[]
   gitHubAccount GitHubAccount?
   connections   RepositoryConnection[]
+  conversations Conversation[]
 
   @@index([email])
 }
@@ -127,6 +133,7 @@ model Repository {
   graphEdges         GraphEdge[]
   embeddings         Embedding[]
   semanticIndexes    SemanticIndex[]
+  conversations      Conversation[]
 
   @@index([githubRepositoryId])
 }
@@ -273,4 +280,31 @@ model SemanticIndex {
 
   @@index([repositoryId])
   @@index([status])
+}
+
+model Conversation {
+  id           String                @id @default(uuid())
+  userId       String
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repositoryId String
+  repository   Repository            @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  title        String
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  messages     ConversationMessage[]
+
+  @@index([userId])
+  @@index([repositoryId])
+}
+
+model ConversationMessage {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
 }

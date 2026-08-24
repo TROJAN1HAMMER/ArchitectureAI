@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.5-ai-rag-foundation] - 2026-08-24
+
+### Added
+
+- `Conversation` and `ConversationMessage` models in Prisma schema with `MessageRole` enum (`USER`, `ASSISTANT`) and user/repository ownership indexes
+- Migration `20260824151754_add_ai_rag_foundation`
+- Provider-agnostic LLM interface (`ILLMProvider`, `LLMGenerationRequest`, `LLMGenerationResponse`)
+- `MockLLMProviderService` for offline, deterministic response generation without external API keys
+- `LLMProviderFactory` resolving provider strategy via `LLM_PROVIDER` (default: `mock`)
+- `QueryUnderstandingService` for natural-language query intent parsing (`architecture`, `security`, `general`), keywords, and target graph node/edge types
+- `ContextRetrieverService` composing `SemanticSearchService` and `KnowledgeGraphService`
+- `ContextRankerService` multi-signal ranker (Semantic: 60%, Graph: 25%, Lexical: 15%) with chunk deduplication
+- `ContextBuilderService` compiling bounded context (`MAX_CONTEXT_CHARS`, default: 8000) and generating prompt injection isolation prompts treating repository code strictly as untrusted DATA
+- `ConversationService` for user- and repository-isolated conversation management
+- `RagService` orchestrating Redis concurrency locking (`repository:ai-lock:<repositoryId>:<userId>`, TTL 60s, `EX 60 NX`), retrieval, LLM execution, message persistence, and grounded fallback responses
+- REST API endpoints under `AiController`:
+  - `POST /api/v1/repositories/:id/ai/chat` (AI repository chat)
+  - `GET /api/v1/repositories/:id/ai/conversations` (List user conversations for repository)
+  - `GET /api/v1/repositories/:id/ai/conversations/:conversationId` (Get conversation message history)
+  - `DELETE /api/v1/repositories/:id/ai/conversations/:conversationId` (Delete conversation)
+- Frontend AI Assistant components (`AIChat`, `AIMessage`, `AISourceList`, `AIChatInput`, `ConversationList`) integrated into `/repositories/[id]` detail page as **"AI Assistant ✨"** tab with light/dark theme support
+- Complete unit and integration test suite (`ai-rag.integration.spec.ts`) covering RAG lifecycle, context ranking, conversation history, IDOR rejection, and Redis lock collision (409 Conflict)
+
+### Security
+
+- Prompt injection isolation: System prompts explicitly treat retrieved code as untrusted DATA and reject code-level override instructions
+- Strict repository and conversation ownership verification across all AI endpoints (returns HTTP 404/403)
+- Redis request locking prevents duplicate concurrent AI request collisions
+
 ## [0.1.4-semantic-search] - 2026-08-24
 
 ### Added

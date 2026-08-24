@@ -31,6 +31,9 @@ export class SearchableContentService {
     "yml",
     "toml",
     "md",
+    "prisma",
+    "graphql",
+    "sql",
   ]);
 
   private readonly ignoredPathSegments = [

@@ -16,17 +16,17 @@ The project is designed as a **Modular Monolith** using a monorepo structure man
 ```text
 +--------------------------------------------------------+
 |                  Next.js 15 Frontend                   |
-| (App Router, ThemeToggle, TreeView, GraphUI, SearchUI) |
+| (App Router, ThemeToggle, TreeView, GraphUI, SearchUI, AIChat) |
 +---------------------------+----------------------------+
                             |
                             | HTTP / REST (Axios)
                             v
 +---------------------------+----------------------------+      +--------------------------+
 |                  NestJS v10 Backend                    |<---->| @architect-ai/shared     |
-| (Auth, Users, Health, Repositories, Graph, SemanticSearch)|      | (Types, Schemas, Consts) |
+| (Auth, Users, Health, Repos, Graph, Search, AiModule)  |      | (Types, Schemas, Consts) |
 +-----+---------------------+----------------------+-----+      +--------------------------+
       |                     |                      |
-      | Prisma ORM          | Redis Lock (EX 600)  | Octokit GitHub REST
+      | Prisma ORM          | Redis Lock (EX 60/600)| Octokit GitHub REST
       v                     v                      v
 +-----+-----+         +-----+-----+          +-----+-----+
 |PostgreSQL |         |   Redis   |          |  GitHub   |
@@ -34,7 +34,7 @@ The project is designed as a **Modular Monolith** using a monorepo structure man
 +-----------+         +-----------+          +-----------+
 ```
 
-## Repository Intelligence & Semantic Pipeline Flow
+## Repository Intelligence & Grounded RAG Flow
 
 ```text
 GitHub REST API (Git Trees API)
@@ -57,16 +57,27 @@ RepositorySyncService
    ├── 8. Update RepositorySync record (status: SUCCESS)
    └── 9. Release Redis Lock safely (matching UUID)
    ↓
-PostgreSQL (Repository, RepositoryFile, GraphNode, GraphEdge, Embedding, SemanticIndex)
+PostgreSQL (Repository, RepositoryFile, GraphNode, GraphEdge, Embedding, Conversation)
    ↓
-REST APIs (GET /repositories/:id/tree, /graph, /search)
+Grounded RAG Pipeline (RagService)
+   ├── 1. Verify Repository Ownership (RepositoryConnection)
+   ├── 2. Acquire Redis Lock (key: repository:ai-lock:<repo>:<user>, 60s TTL, NX)
+   ├── 3. Parse User Query Intent (QueryUnderstandingService)
+   ├── 4. Retrieve Vector + Graph Context (ContextRetrieverService)
+   ├── 5. Weight & Rank Signals (ContextRankerService: Semantic 60%, Graph 25%, Lexical 15%)
+   ├── 6. Format Bounded Context & System Prompt (ContextBuilderService: MAX_CONTEXT_CHARS)
+   ├── 7. Execute LLM Provider (LLMProviderFactory / MockLLMProviderService)
+   ├── 8. Persist Conversation & ConversationMessage History (ConversationService)
+   └── 9. Release Redis Lock safely
    ↓
-Next.js Repository UI (/repositories/[id])
+REST APIs (POST /repositories/:id/ai/chat, GET /conversations)
+   ↓
+Next.js AI Assistant Tab (/repositories/[id])
 ```
 
 ## Folder Structure
 
-- `frontend/`: React components, views, layout, and client-side hooks.
-- `backend/`: Core business logic services, controllers, middlewares, filters, and interceptors.
+- `frontend/`: React components, views, layout, client-side hooks, and AI chat UI.
+- `backend/`: Core business logic services, controllers, AI/RAG services, middlewares, filters, and interceptors.
 - `packages/shared/`: Cross-boundary validation schemas, TypeScript interfaces, and shared constants.
 - `docs/`: ADR logs, architecture design docs, release notes, and phase walkthroughs.

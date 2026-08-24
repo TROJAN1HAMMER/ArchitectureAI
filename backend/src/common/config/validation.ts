@@ -25,6 +25,11 @@ export const environmentSchema = z.object({
   EMBEDDING_MAX_FILE_SIZE: z.coerce.number().default(524288),
   EMBEDDING_CHUNK_SIZE: z.coerce.number().default(1000),
   EMBEDDING_CHUNK_OVERLAP: z.coerce.number().default(200),
+  LLM_PROVIDER: z.string().default("mock"),
+  LLM_MODEL: z.string().default("mock-model"),
+  LLM_API_KEY: z.string().optional(),
+  LLM_BASE_URL: z.string().optional(),
+  MAX_CONTEXT_CHARS: z.coerce.number().default(8000),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

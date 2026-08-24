@@ -12,6 +12,7 @@ import { RepositoryModule } from "./modules/repository/repository.module.js";
 import { GithubModule } from "./modules/github/github.module.js";
 import { KnowledgeGraphModule } from "./modules/knowledge-graph/knowledge-graph.module.js";
 import { SemanticSearchModule } from "./modules/semantic-search/semantic-search.module.js";
+import { AiModule } from "./modules/ai/ai.module.js";
 import { RedisModule } from "./common/redis/redis.module.js";
 import { RequestContextModule } from "./common/request-context/request-context.module.js";
 import { RequestContextMiddleware } from "./common/request-context/request-context.middleware.js";
@@ -37,6 +38,7 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
     GithubModule,
     KnowledgeGraphModule,
     SemanticSearchModule,
+    AiModule,
     RedisModule,
     RequestContextModule,
   ],
