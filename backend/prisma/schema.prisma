@@ -113,6 +113,48 @@ enum DiagramEdgeType {
   IMPORTS
 }
 
+enum GovernanceRuleSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum GovernanceViolationStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  IGNORED
+}
+
+enum ArchitectureDiffStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum ArchitectureDiffItemType {
+  ADDED
+  REMOVED
+  MODIFIED
+  UNCHANGED
+  RISK_CHANGED
+  BOUNDARY_CHANGED
+  DEPENDENCY_ADDED
+  DEPENDENCY_REMOVED
+  FINDING_NEW
+  FINDING_RESOLVED
+  FINDING_PERSISTED
+}
+
+enum GovernanceReviewStatus {
+  PASS
+  PASS_WITH_WARNINGS
+  FAILED
+}
+
 model User {
   id            String                 @id @default(uuid())
   email         String                 @unique
@@ -194,6 +236,10 @@ model Repository {
   architectureAnalyses ArchitectureAnalysis[]
   architectureFindings ArchitectureFinding[]
   systemDesigns        SystemDesign[]
+  snapshots            ArchitectureSnapshot[]
+  diffs                ArchitectureDiff[]
+  governanceRules      GovernanceRule[]
+  governanceViolations GovernanceViolation[]
 
   @@index([githubRepositoryId])
 }
@@ -273,6 +319,9 @@ model GraphNode {
   sourceFindings     ArchitectureFinding[] @relation("sourceFindingNode")
   targetFindings     ArchitectureFinding[] @relation("targetFindingNode")
   diagramNodes       DiagramNode[]
+  snapshotNodes      ArchitectureSnapshotNode[]
+  sourceViolations   GovernanceViolation[] @relation("sourceViolationNode")
+  targetViolations   GovernanceViolation[] @relation("targetViolationNode")
 
   @@unique([repositoryId, qualifiedName])
   @@index([repositoryId])
@@ -389,6 +438,8 @@ model ArchitectureAnalysis {
   createdAt         DateTime                   @default(now())
   updatedAt         DateTime                   @updatedAt
   findings          ArchitectureFinding[]
+  snapshots         ArchitectureSnapshot[]
+  violations        GovernanceViolation[]
 
   @@index([repositoryId])
   @@index([status])
@@ -421,17 +472,18 @@ model ArchitectureFinding {
 }
 
 model SystemDesign {
-  id           String     @id @default(uuid())
+  id           String                 @id @default(uuid())
   repositoryId String
-  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   Repository             @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   name         String
   description  String?
-  version      Int        @default(1)
-  generatedAt  DateTime   @default(now())
+  version      Int                    @default(1)
+  generatedAt  DateTime               @default(now())
   metadata     Json?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
   diagrams     Diagram[]
+  snapshots    ArchitectureSnapshot[]
 
   @@index([repositoryId])
   @@index([version])
@@ -500,4 +552,154 @@ model DiagramEdge {
   @@index([sourceNodeId])
   @@index([targetNodeId])
   @@index([type])
+}
+
+model ArchitectureSnapshot {
+  id                     String                    @id @default(uuid())
+  repositoryId           String
+  repository             Repository                @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  architectureAnalysisId String?
+  architectureAnalysis   ArchitectureAnalysis?     @relation(fields: [architectureAnalysisId], references: [id], onDelete: SetNull)
+  systemDesignId         String?
+  systemDesign           SystemDesign?             @relation(fields: [systemDesignId], references: [id], onDelete: SetNull)
+  version                Int                       @default(1)
+  label                  String
+  commitSha              String?
+  branch                 String?
+  nodesCount             Int                       @default(0)
+  edgesCount             Int                       @default(0)
+  componentsCount        Int                       @default(0)
+  findingsCount          Int                       @default(0)
+  riskScore              Float                     @default(0.0)
+  riskLevel              String                    @default("LOW")
+  metadata               Json?
+  createdAt              DateTime                  @default(now())
+  nodes                  ArchitectureSnapshotNode[]
+  edges                  ArchitectureSnapshotEdge[]
+  fromDiffs              ArchitectureDiff[]        @relation("fromSnapshot")
+  toDiffs                ArchitectureDiff[]        @relation("toSnapshot")
+
+  @@unique([repositoryId, version])
+  @@index([repositoryId])
+  @@index([createdAt])
+  @@index([commitSha])
+}
+
+model ArchitectureSnapshotNode {
+  id            String               @id @default(uuid())
+  snapshotId    String
+  snapshot      ArchitectureSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  graphNodeId   String?
+  graphNode     GraphNode?           @relation(fields: [graphNodeId], references: [id], onDelete: SetNull)
+  qualifiedName String
+  type          String
+  name          String
+  path          String?
+  metadata      Json?
+
+  @@unique([snapshotId, qualifiedName])
+  @@index([snapshotId])
+  @@index([qualifiedName])
+}
+
+model ArchitectureSnapshotEdge {
+  id                  String               @id @default(uuid())
+  snapshotId          String
+  snapshot            ArchitectureSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  sourceQualifiedName String
+  targetQualifiedName String
+  type                String
+  metadata            Json?
+
+  @@unique([snapshotId, sourceQualifiedName, targetQualifiedName, type])
+  @@index([snapshotId])
+  @@index([sourceQualifiedName])
+  @@index([targetQualifiedName])
+}
+
+model ArchitectureDiff {
+  id             String                 @id @default(uuid())
+  repositoryId   String
+  repository     Repository             @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  fromSnapshotId String
+  fromSnapshot   ArchitectureSnapshot   @relation("fromSnapshot", fields: [fromSnapshotId], references: [id], onDelete: Cascade)
+  toSnapshotId   String
+  toSnapshot     ArchitectureSnapshot   @relation("toSnapshot", fields: [toSnapshotId], references: [id], onDelete: Cascade)
+  status         ArchitectureDiffStatus @default(SUCCESS)
+  summary        Json?
+  riskDelta      Float                  @default(0.0)
+  createdAt      DateTime               @default(now())
+  items          ArchitectureDiffItem[]
+  violations     GovernanceViolation[]
+
+  @@index([repositoryId])
+  @@index([fromSnapshotId])
+  @@index([toSnapshotId])
+}
+
+model ArchitectureDiffItem {
+  id             String                   @id @default(uuid())
+  diffId         String
+  diff           ArchitectureDiff         @relation(fields: [diffId], references: [id], onDelete: Cascade)
+  type           ArchitectureDiffItemType
+  category       String
+  severity       GovernanceRuleSeverity   @default(INFO)
+  title          String
+  description    String
+  sourceNodeName String?
+  targetNodeName String?
+  evidence       Json?
+  metadata       Json?
+  createdAt      DateTime                 @default(now())
+
+  @@index([diffId])
+  @@index([type])
+  @@index([severity])
+}
+
+model GovernanceRule {
+  id            String                 @id @default(uuid())
+  repositoryId  String?
+  repository    Repository?            @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  name          String
+  description   String
+  ruleType      String
+  severity      GovernanceRuleSeverity @default(HIGH)
+  enabled       Boolean                @default(true)
+  configuration Json?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  violations    GovernanceViolation[]
+
+  @@index([repositoryId])
+  @@index([ruleType])
+}
+
+model GovernanceViolation {
+  id                     String                    @id @default(uuid())
+  repositoryId           String
+  repository             Repository                @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  ruleId                 String
+  rule                   GovernanceRule            @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  architectureAnalysisId String?
+  architectureAnalysis   ArchitectureAnalysis?     @relation(fields: [architectureAnalysisId], references: [id], onDelete: SetNull)
+  diffId                 String?
+  diff                   ArchitectureDiff?         @relation(fields: [diffId], references: [id], onDelete: SetNull)
+  severity               GovernanceRuleSeverity    @default(HIGH)
+  title                  String
+  description            String
+  confidence             Float                     @default(1.0)
+  sourceNodeId           String?
+  sourceNode             GraphNode?                @relation("sourceViolationNode", fields: [sourceNodeId], references: [id], onDelete: SetNull)
+  targetNodeId           String?
+  targetNode             GraphNode?                @relation("targetViolationNode", fields: [targetNodeId], references: [id], onDelete: SetNull)
+  evidence               Json?
+  status                 GovernanceViolationStatus @default(OPEN)
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+
+  @@index([repositoryId])
+  @@index([ruleId])
+  @@index([severity])
+  @@index([status])
 }

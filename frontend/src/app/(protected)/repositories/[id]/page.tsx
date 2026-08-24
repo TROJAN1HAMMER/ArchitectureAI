@@ -50,6 +50,25 @@ import {
 import { ArchitectureFindingDetail } from "@/components/architecture/ArchitectureFindingDetail";
 import { SystemDesignStudio } from "@/components/system-design/SystemDesignStudio";
 import { SystemDesignGenerateButton } from "@/components/system-design/SystemDesignGenerateButton";
+import {
+  GovernanceOverview,
+  GovernanceSummaryData,
+} from "@/components/governance/GovernanceOverview";
+import {
+  GovernanceViolationTable,
+  GovernanceViolationItem,
+} from "@/components/governance/GovernanceViolationTable";
+import {
+  GovernanceRules,
+  GovernanceRuleItem,
+} from "@/components/governance/GovernanceRules";
+import { ArchitectureDiffViewer } from "@/components/governance/ArchitectureDiffViewer";
+import {
+  ArchitectureSnapshotList,
+  SnapshotItemData,
+} from "@/components/governance/ArchitectureSnapshotList";
+import { GovernanceReviewButton } from "@/components/governance/GovernanceReviewButton";
+import { GovernanceFindingDetail } from "@/components/governance/GovernanceFindingDetail";
 
 interface RepositoryDetail {
   id: string;
@@ -92,6 +111,7 @@ export default function RepositoryDetailPage({
   const repositoryId = resolvedParams.id;
 
   const [activeTab, setActiveTab] = useState<
+    | "governance"
     | "system-design"
     | "architecture"
     | "ai"
@@ -99,7 +119,7 @@ export default function RepositoryDetailPage({
     | "graph"
     | "files"
     | "syncs"
-  >("system-design");
+  >("governance");
 
   const [repo, setRepo] = useState<RepositoryDetail | null>(null);
   const [files, setFiles] = useState<RepositoryFileNode[]>([]);
@@ -120,6 +140,18 @@ export default function RepositoryDetailPage({
   const [selectedFinding, setSelectedFinding] = useState<FindingItem | null>(
     null,
   );
+
+  // Governance state
+  const [govSummary, setGovSummary] = useState<GovernanceSummaryData | null>(
+    null,
+  );
+  const [govViolations, setGovViolations] = useState<GovernanceViolationItem[]>(
+    [],
+  );
+  const [govRules, setGovRules] = useState<GovernanceRuleItem[]>([]);
+  const [govSnapshots, setGovSnapshots] = useState<SnapshotItemData[]>([]);
+  const [selectedViolation, setSelectedViolation] =
+    useState<GovernanceViolationItem | null>(null);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -146,6 +178,10 @@ export default function RepositoryDetailPage({
         archFindingsRes,
         archCompRes,
         archHistRes,
+        govSummaryRes,
+        govViolationsRes,
+        govRulesRes,
+        govSnapshotsRes,
       ] = await Promise.all([
         api.get(`/repositories/${repositoryId}`),
         api.get(`/repositories/${repositoryId}/tree`),
@@ -163,6 +199,18 @@ export default function RepositoryDetailPage({
           .catch(() => ({ data: { components: [] } })),
         api
           .get(`/repositories/${repositoryId}/architecture/history`)
+          .catch(() => ({ data: [] })),
+        api
+          .get(`/repositories/${repositoryId}/governance`)
+          .catch(() => ({ data: null })),
+        api
+          .get(`/repositories/${repositoryId}/governance/violations`)
+          .catch(() => ({ data: [] })),
+        api
+          .get(`/repositories/${repositoryId}/governance/rules`)
+          .catch(() => ({ data: [] })),
+        api
+          .get(`/repositories/${repositoryId}/governance/snapshots`)
           .catch(() => ({ data: [] })),
       ]);
 
@@ -183,6 +231,19 @@ export default function RepositoryDetailPage({
       }
       if (Array.isArray(archHistRes.data?.data)) {
         setArchHistory(archHistRes.data.data);
+      }
+
+      if (govSummaryRes.data?.data) {
+        setGovSummary(govSummaryRes.data.data);
+      }
+      if (Array.isArray(govViolationsRes.data?.data)) {
+        setGovViolations(govViolationsRes.data.data);
+      }
+      if (Array.isArray(govRulesRes.data?.data)) {
+        setGovRules(govRulesRes.data.data);
+      }
+      if (Array.isArray(govSnapshotsRes.data?.data)) {
+        setGovSnapshots(govSnapshotsRes.data.data);
       }
     } catch (err: any) {
       setError(
@@ -211,6 +272,33 @@ export default function RepositoryDetailPage({
       console.error("Semantic search failed:", err);
     } finally {
       setSearchLoading(false);
+    }
+  };
+
+  const handleUpdateViolationStatus = async (
+    violationId: string,
+    status: string,
+  ) => {
+    try {
+      await api.patch(
+        `/repositories/${repositoryId}/governance/violations/${violationId}`,
+        { status },
+      );
+      loadRepositoryData();
+    } catch (err) {
+      console.error("Failed to update violation status", err);
+    }
+  };
+
+  const handleToggleRule = async (ruleId: string, enabled: boolean) => {
+    try {
+      await api.patch(
+        `/repositories/${repositoryId}/governance/rules/${ruleId}`,
+        { enabled },
+      );
+      loadRepositoryData();
+    } catch (err) {
+      console.error("Failed to toggle rule", err);
     }
   };
 
@@ -288,6 +376,11 @@ export default function RepositoryDetailPage({
               GitHub ↗
             </a>
 
+            <GovernanceReviewButton
+              repositoryId={repo.id}
+              onReviewCompleted={loadRepositoryData}
+            />
+
             <SystemDesignGenerateButton
               repositoryId={repo.id}
               onGenerateStarted={loadRepositoryData}
@@ -360,6 +453,17 @@ export default function RepositoryDetailPage({
 
       {/* Navigation Tabs */}
       <div className="flex border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab("governance")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+            activeTab === "governance"
+              ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 font-semibold"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          }`}
+        >
+          Governance 🛡️
+        </button>
+
         <button
           onClick={() => setActiveTab("system-design")}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
@@ -439,6 +543,24 @@ export default function RepositoryDetailPage({
       </div>
 
       {/* Tab Contents */}
+      {activeTab === "governance" && (
+        <div className="space-y-6">
+          <GovernanceOverview summary={govSummary} />
+
+          <GovernanceViolationTable
+            violations={govViolations}
+            onSelectViolation={(v) => setSelectedViolation(v)}
+            onUpdateStatus={handleUpdateViolationStatus}
+          />
+
+          <ArchitectureDiffViewer diff={govSummary?.latestDiff} />
+
+          <ArchitectureSnapshotList snapshots={govSnapshots} />
+
+          <GovernanceRules rules={govRules} onToggleRule={handleToggleRule} />
+        </div>
+      )}
+
       {activeTab === "system-design" && (
         <div className="space-y-6">
           <SystemDesignStudio repositoryId={repo.id} />
@@ -591,10 +713,15 @@ export default function RepositoryDetailPage({
         </div>
       )}
 
-      {/* Finding Detail Modal */}
+      {/* Finding Detail Modals */}
       <ArchitectureFindingDetail
         finding={selectedFinding}
         onClose={() => setSelectedFinding(null)}
+      />
+
+      <GovernanceFindingDetail
+        violation={selectedViolation}
+        onClose={() => setSelectedViolation(null)}
       />
     </div>
   );

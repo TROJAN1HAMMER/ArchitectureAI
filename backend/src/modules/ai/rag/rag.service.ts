@@ -12,6 +12,7 @@ import { ContextRankerService } from "./context-ranker.service.js";
 import { ContextBuilderService } from "./context-builder.service.js";
 import { ArchitectureContextService } from "../../architecture/architecture-context.service.js";
 import { SystemDesignContextService } from "../../system-design/system-design-context.service.js";
+import { GovernanceContextService } from "../../governance/governance-context.service.js";
 import { LLMProviderFactory } from "../llm/llm-provider.factory.js";
 import { ConversationService } from "../conversation/conversation.service.js";
 import { MessageRole } from "@prisma/client";
@@ -53,6 +54,7 @@ export class RagService {
     private readonly contextBuilderService: ContextBuilderService,
     private readonly architectureContextService: ArchitectureContextService,
     private readonly systemDesignContextService: SystemDesignContextService,
+    private readonly governanceContextService: GovernanceContextService,
     private readonly llmProviderFactory: LLMProviderFactory,
     private readonly conversationService: ConversationService,
   ) {}
@@ -135,9 +137,9 @@ export class RagService {
       );
 
       let fullContextBlock = builtContext.contextBlock;
-
-      // 8b. Architecture Context Enrichment if query relates to architecture/risk
       const lowerQ = userQuery.toLowerCase();
+
+      // Architecture Context
       if (
         parsedQuery.intent === "architecture" ||
         lowerQ.includes("risk") ||
@@ -154,7 +156,7 @@ export class RagService {
         fullContextBlock = `${archContext}\n\n${fullContextBlock}`;
       }
 
-      // 8c. System Design Context Enrichment if query relates to system design/diagrams/containers
+      // System Design Context
       if (
         lowerQ.includes("diagram") ||
         lowerQ.includes("container") ||
@@ -168,6 +170,23 @@ export class RagService {
             repositoryId,
           );
         fullContextBlock = `${sysDesignContext}\n\n${fullContextBlock}`;
+      }
+
+      // Governance Context
+      if (
+        lowerQ.includes("governance") ||
+        lowerQ.includes("violation") ||
+        lowerQ.includes("rule") ||
+        lowerQ.includes("diff") ||
+        lowerQ.includes("change") ||
+        lowerQ.includes("review")
+      ) {
+        const govContext =
+          await this.governanceContextService.getGovernanceContext(
+            userId,
+            repositoryId,
+          );
+        fullContextBlock = `${govContext}\n\n${fullContextBlock}`;
       }
 
       const systemPrompt = this.contextBuilderService.buildSystemPrompt();

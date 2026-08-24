@@ -14,23 +14,24 @@ ArchitectAI is an AI-powered Engineering Intelligence & System Design Platform. 
 
 ## Vision
 
-ArchitectAI aims to bridge the gap between abstract software architecture and actual repository implementations. By modeling the codebase as a system design knowledge graph, semantic vector index, grounded AI assistant, and C4 diagram studio, it provides engineers with:
+ArchitectAI aims to bridge the gap between abstract software architecture and actual repository implementations. By modeling the codebase as a system design knowledge graph, semantic vector index, grounded AI assistant, C4 diagram studio, and governance review engine, it provides engineers with:
 
 1. **Automated Discovery**: Up-to-date visualization of system topologies, components, and service networks.
 2. **Semantic Search & Intelligence**: Vector similarity search over codebases with contextual snippet chunking and ownership security.
-3. **Grounded AI Repository Assistant**: Natural-language repository Q&A powered by RAG context combining vector search, knowledge graph relationships, architecture findings, and system design diagrams.
+3. **Grounded AI Repository Assistant**: Natural-language repository Q&A powered by RAG context combining vector search, knowledge graph relationships, architecture findings, C4 diagrams, and governance review diffs.
 4. **Automated Architecture Auditing**: Deterministic cycle detection, coupling metrics, boundary violation checks, pattern detection, and structural risk scoring.
 5. **Interactive System Design Studio**: Automated generation of C4 System Context, Container, and Component diagrams with interactive canvas editing and SVG/JSON export.
+6. **Architecture Review & Governance Workflows**: Automated snapshot comparisons over releases, component & dependency diffs, risk score deltas, governance policy enforcement, and review status evaluation (`PASS`, `PASS_WITH_WARNINGS`, `FAILED`).
 
 ---
 
 ## Current Status
 
-**Active Version**: `v0.1.7-system-design-studio`  
-The project has completed **Phases 1 through 9**. The system features a production-ready authentication foundation, platform infrastructure, GitHub OAuth integration, Redis concurrency locking, full repository metadata and file tree ingestion, PostgreSQL knowledge graph persistence, a complete **Semantic Search Foundation**, an **AI Repository Understanding / RAG Foundation**, an **Architecture Discovery & Auditing Layer**, and an **Interactive System Design Studio**:
+**Active Version**: `v0.1.8-architecture-governance`  
+The project has completed **Phases 1 through 10**. The system features a production-ready authentication foundation, platform infrastructure, GitHub OAuth integration, Redis concurrency locking, full repository metadata and file tree ingestion, PostgreSQL knowledge graph persistence, a complete **Semantic Search Foundation**, an **AI Repository Understanding / RAG Foundation**, an **Architecture Discovery & Auditing Layer**, an **Interactive System Design Studio**, and **Architecture Review & Governance Workflows**:
 
 - **Authentication Foundation**: OWASP-aligned `argon2id` passwords, short-lived (15-min) in-memory JWTs, 7-day rotated `HttpOnly` refresh cookies, and session-level database auditing.
-- **Central Redis Cache & Coordination**: Global Redis connections via `ioredis` with exponential backoff retries, clean shutdowns, sync locks (`repository:sync-lock:<id>`), graph construction locks (`repository:graph-lock:<id>`), semantic indexing locks (`repository:embedding-lock:<id>`), AI request locks (`repository:ai-lock:<id>:<user>`), architecture analysis locks (`repository:architecture-lock:<id>`), and system design locks (`system-design:generate-lock:<id>`).
+- **Central Redis Cache & Coordination**: Global Redis connections via `ioredis` with exponential backoff retries, clean shutdowns, sync locks (`repository:sync-lock:<id>`), graph construction locks (`repository:graph-lock:<id>`), semantic indexing locks (`repository:embedding-lock:<id>`), AI request locks (`repository:ai-lock:<id>:<user>`), architecture analysis locks (`repository:architecture-lock:<id>`), system design locks (`system-design:generate-lock:<id>`), and governance review locks (`repository:governance-lock:<id>`).
 - **Request Correlation**: Correlation IDs (`X-Request-ID`) mapped via `AsyncLocalStorage` and automatically printed in logs.
 - **Structured Logging**: Logging interceptors capturing HTTP method, path, response codes, and durations.
 - **Security Hardening**: Secure headers (Helmet) and strict comma-separated origins CORS checking.
@@ -42,6 +43,7 @@ The project has completed **Phases 1 through 9**. The system features a producti
 - **AI Repository Understanding / RAG Foundation (Phase 7)**: Bounded RAG pipeline (`QueryUnderstandingService`, `ContextRetrieverService`, `ContextRankerService`, `ContextBuilderService`, `RagService`), LLM provider abstraction (`ILLMProvider`, default offline `MockLLMProviderService`), prompt injection isolation, grounded source citations, persistent `Conversation` / `ConversationMessage` tracking, and interactive AI chat UI tab.
 - **Architecture Discovery & Auditing (Phase 8)**: `ArchitectureAnalysis` and `ArchitectureFinding` models, `ArchitectureDiscoveryService`, cycle detection (`CIRCULAR_DEPENDENCY`), coupling metrics (`HIGH_COUPLING`, `DEPENDENCY_HOTSPOT`), boundary violation checks (`BOUNDARY_VIOLATION`), pattern detection (`PATTERN_DETECTED`), deterministic risk scoring (0–100), RAG architecture context enrichment, and interactive Architecture Audit frontend tab.
 - **System Design Studio & Interactive Diagramming (Phase 9)**: `SystemDesign`, `Diagram`, `DiagramNode`, and `DiagramEdge` models, C4 System Context, Container, and Component diagram generation (`DiagramGenerationService`), deterministic layout positioning (`DiagramLayoutService`), grounded RAG context injection (`SystemDesignContextService`), and interactive System Design Studio UI tab with SVG/JSON export.
+- **Architecture Review & Governance Workflows (Phase 10)**: `ArchitectureSnapshot`, `ArchitectureSnapshotNode`, `ArchitectureSnapshotEdge`, `ArchitectureDiff`, `ArchitectureDiffItem`, `GovernanceRule`, and `GovernanceViolation` models, snapshot capturing (`ArchitectureSnapshotService`), diff engine (`ArchitectureDiffService`), rule evaluation (`GovernanceEngineService`), review status calculation (`GovernanceReviewService`), RAG governance context enrichment (`GovernanceContextService`), and interactive Governance dashboard frontend tab.
 - **Dark / Light Theme**: Full site-wide theme toggling via `next-themes` with smooth animated transitions across all pages and components.
 
 ---
@@ -62,6 +64,7 @@ graph TD
         AIChatUI["AI Assistant Chat & Sources"]
         ArchUI["Architecture Audit & Findings UI"]
         SysDesignUI["System Design Studio & C4 Canvas"]
+        GovUI["Governance Review Dashboard & Rules"]
 
         UI --> Axios
         UI --> Theme
@@ -71,6 +74,7 @@ graph TD
         UI --> AIChatUI
         UI --> ArchUI
         UI --> SysDesignUI
+        UI --> GovUI
     end
 
     subgraph Backend ["NestJS v10 API"]
@@ -84,7 +88,8 @@ graph TD
         AiModule["AiModule"]
         ArchModule["ArchitectureModule"]
         SysDesignModule["SystemDesignModule"]
-        SysDesignService["SystemDesignService"]
+        GovModule["GovernanceModule"]
+        GovReviewService["GovernanceReviewService"]
         PrismaService["Prisma Client Service"]
         LoggerService["Winston Logger Wrapper"]
 
@@ -97,21 +102,22 @@ graph TD
         App --> AiModule
         App --> ArchModule
         App --> SysDesignModule
+        App --> GovModule
         App --> PrismaService
         App --> LoggerService
 
-        SysDesignModule --> SysDesignService
-        AiModule --> SysDesignModule
+        GovModule --> GovReviewService
+        AiModule --> GovModule
     end
 
     subgraph Persistence ["Infra Containers"]
-        Postgres[("PostgreSQL / pgvector (GraphNode, Embedding, ArchitectureFinding, SystemDesign, Diagram)")]
-        Redis[("Redis (Sync, Graph, Embedding, AI, Architecture, System Design Locks EX 600 NX)")]
+        Postgres[("PostgreSQL / pgvector (GraphNode, Embedding, ArchitectureFinding, SystemDesign, ArchitectureSnapshot, ArchitectureDiff, GovernanceViolation)")]
+        Redis[("Redis (Sync, Graph, Embedding, AI, Architecture, System Design, Governance Locks EX 600 NX)")]
     end
 
     Axios -->|REST API HTTP| App
     PrismaService -->|ORM SQL| Postgres
-    SysDesignService -->|Lock/Unlock| Redis
+    GovReviewService -->|Lock/Unlock| Redis
 ```
 
 ---
@@ -132,7 +138,7 @@ graph TD
 
 - **NestJS v10** (Module architecture, DI container)
 - **Prisma ORM** (Type-safe schemas & migrations)
-- **PostgreSQL / pgvector** (Core relational, graph, vector, architecture, system design, and conversation database)
+- **PostgreSQL / pgvector** (Core relational, graph, vector, architecture, system design, governance, and conversation database)
 - **Winston** (Structured logging custom wrapper)
 - **Zod** (Bootstrap environments validation)
 - **Swagger** (Interactive API documentation)
@@ -149,6 +155,7 @@ graph TD
 - [ADR-007: AI Repository Understanding / RAG Foundation](docs/adr/ADR-007-ai-rag-foundation.md)
 - [ADR-008: Architecture Discovery & Auditing Foundation](docs/adr/ADR-008-architecture-discovery-auditing.md)
 - [ADR-009: System Design Studio & Interactive Diagramming](docs/adr/ADR-009-system-design-studio.md)
+- [ADR-010: Architecture Review & Governance Workflows](docs/adr/ADR-010-architecture-governance.md)
 
 ---
 
@@ -164,8 +171,8 @@ graph TD
 - [x] **Phase 7** — AI Repository Chat / RAG Foundation
 - [x] **Phase 8** — Architecture Discovery & Auditing
 - [x] **Phase 9** — System Design Studio & Interactive Diagramming
-- [ ] **Phase 10** — Architecture Review & Governance
-- [ ] **Phase 11** — Production Hardening
+- [x] **Phase 10** — Architecture Review & Governance Workflows
+- [ ] **Phase 11** — Production Hardening & Multi-Tenant Deployment Readiness
 
 ---
 

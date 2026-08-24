@@ -5,6 +5,7 @@ import { SemanticSearchModule } from "../semantic-search/semantic-search.module.
 import { KnowledgeGraphModule } from "../knowledge-graph/knowledge-graph.module.js";
 import { ArchitectureModule } from "../architecture/architecture.module.js";
 import { SystemDesignModule } from "../system-design/system-design.module.js";
+import { GovernanceModule } from "../governance/governance.module.js";
 import { AiController } from "./ai.controller.js";
 import { RagService } from "./rag/rag.service.js";
 import { QueryUnderstandingService } from "./rag/query-understanding.service.js";
@@ -23,6 +24,7 @@ import { LLMProviderFactory } from "./llm/llm-provider.factory.js";
     KnowledgeGraphModule,
     ArchitectureModule,
     SystemDesignModule,
+    GovernanceModule,
   ],
   controllers: [AiController],
   providers: [

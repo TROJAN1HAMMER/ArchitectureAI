@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.8-architecture-governance] - 2026-08-24
+
+### Added
+
+- `ArchitectureSnapshot`, `ArchitectureSnapshotNode`, `ArchitectureSnapshotEdge`, `ArchitectureDiff`, `ArchitectureDiffItem`, `GovernanceRule`, and `GovernanceViolation` models in Prisma schema with `GovernanceRuleSeverity`, `GovernanceViolationStatus`, `ArchitectureDiffStatus`, `ArchitectureDiffItemType`, and `GovernanceReviewStatus` enums
+- Migration `20260824160645_add_architecture_governance`
+- `ArchitectureSnapshotService` for creating and listing deterministic architectural snapshots
+- `ArchitectureDiffService` for comparing snapshot states and detecting added/removed components, dependency changes, and risk score deltas
+- `GovernanceRuleService` for seeding default rules (`NO_CIRCULAR_DEPENDENCY`, `NO_FRONTEND_TO_DATABASE`, `NO_DATABASE_TO_FRONTEND`, `EXCESSIVE_COUPLING`, `RISK_SCORE_THRESHOLD`) and rule CRUD operations
+- `GovernanceEngineService` for evaluating governance rules deterministically against analysis findings and diffs
+- `GovernanceReviewService` orchestrating governance reviews and Redis concurrency locking (`repository:governance-lock:<repositoryId>`, TTL 600s, `EX 600 NX`)
+- `GovernanceContextService` enriching Phase 7 RAG assistant context with governance review results and violations
+- REST API endpoints under `GovernanceController`:
+  - `GET /api/v1/repositories/:id/governance` (Get governance summary & review status)
+  - `POST /api/v1/repositories/:id/governance/review` (Run automated governance review, 409 if locked)
+  - `GET /api/v1/repositories/:id/governance/snapshots` (List architecture snapshots)
+  - `GET /api/v1/repositories/:id/governance/snapshots/:snapshotId` (Get snapshot detail)
+  - `GET /api/v1/repositories/:id/governance/diffs` (List architecture diffs)
+  - `GET /api/v1/repositories/:id/governance/diffs/:diffId` (Get architecture diff detail)
+  - `GET /api/v1/repositories/:id/governance/violations` (List filterable violations)
+  - `PATCH /api/v1/repositories/:id/governance/violations/:violationId` (Update violation status)
+  - `GET /api/v1/repositories/:id/governance/rules` (List rules)
+  - `POST /api/v1/repositories/:id/governance/rules` (Create custom rule)
+  - `PATCH /api/v1/repositories/:id/governance/rules/:ruleId` (Update rule settings)
+  - `DELETE /api/v1/repositories/:id/governance/rules/:ruleId` (Delete rule)
+- Frontend Governance tab (`GovernanceOverview`, `GovernanceStatusBadge`, `GovernanceRiskDelta`, `GovernanceViolationTable`, `GovernanceRules`, `ArchitectureDiffViewer`, `ArchitectureSnapshotList`, `GovernanceReviewButton`, `GovernanceFindingDetail`) integrated into `/repositories/[id]` page
+- Unit test suites for snapshot, diff, rule, engine, review service, controller, and dedicated integration test (`governance.integration.spec.ts`)
+
+### Security
+
+- Strictly enforced user repository ownership verification on all governance endpoints (returns HTTP 404/403)
+- Redis review locking prevents concurrent duplicate governance review execution jobs (returns HTTP 409 Conflict)
+
 ## [0.1.7-system-design-studio] - 2026-08-24
 
 ### Added

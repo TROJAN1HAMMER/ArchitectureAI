@@ -28,6 +28,12 @@ import { DiagramGenerationService } from "../system-design/diagram-generation.se
 import { DiagramLayoutService } from "../system-design/diagram-layout.service.js";
 import { SystemDesignService } from "../system-design/system-design.service.js";
 import { SystemDesignContextService } from "../system-design/system-design-context.service.js";
+import { GovernanceRuleService } from "../governance/governance-rule.service.js";
+import { GovernanceEngineService } from "../governance/governance-engine.service.js";
+import { ArchitectureSnapshotService } from "../governance/architecture-snapshot.service.js";
+import { ArchitectureDiffService } from "../governance/architecture-diff.service.js";
+import { GovernanceReviewService } from "../governance/governance-review.service.js";
+import { GovernanceContextService } from "../governance/governance-context.service.js";
 import { ConfigModule } from "@nestjs/config";
 
 describe("Phase 7 AI Repository RAG Integration Test", () => {
@@ -121,6 +127,12 @@ describe("Phase 7 AI Repository RAG Integration Test", () => {
         DiagramLayoutService,
         SystemDesignService,
         SystemDesignContextService,
+        GovernanceRuleService,
+        GovernanceEngineService,
+        ArchitectureDiffService,
+        ArchitectureSnapshotService,
+        GovernanceReviewService,
+        GovernanceContextService,
         MockLLMProviderService,
         LLMProviderFactory,
         ConversationService,
