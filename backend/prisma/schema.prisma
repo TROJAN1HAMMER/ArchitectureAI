@@ -84,6 +84,35 @@ enum ArchitectureAnalysisStatus {
   FAILED
 }
 
+enum DiagramType {
+  SYSTEM_CONTEXT
+  CONTAINER
+  COMPONENT
+}
+
+enum DiagramNodeType {
+  PERSON
+  SYSTEM
+  CONTAINER
+  COMPONENT
+  DATABASE
+  EXTERNAL_SYSTEM
+  API
+  SERVICE
+  MODULE
+}
+
+enum DiagramEdgeType {
+  USES
+  CALLS
+  DEPENDS_ON
+  CONTAINS
+  READS
+  WRITES
+  EXPOSES
+  IMPORTS
+}
+
 model User {
   id            String                 @id @default(uuid())
   email         String                 @unique
@@ -164,6 +193,7 @@ model Repository {
   conversations        Conversation[]
   architectureAnalyses ArchitectureAnalysis[]
   architectureFindings ArchitectureFinding[]
+  systemDesigns        SystemDesign[]
 
   @@index([githubRepositoryId])
 }
@@ -242,6 +272,7 @@ model GraphNode {
   embeddings         Embedding[]
   sourceFindings     ArchitectureFinding[] @relation("sourceFindingNode")
   targetFindings     ArchitectureFinding[] @relation("targetFindingNode")
+  diagramNodes       DiagramNode[]
 
   @@unique([repositoryId, qualifiedName])
   @@index([repositoryId])
@@ -342,49 +373,131 @@ model ConversationMessage {
 }
 
 model ArchitectureAnalysis {
-  id                 String                     @id @default(uuid())
-  repositoryId       String
-  repository         Repository                 @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  status             ArchitectureAnalysisStatus @default(PENDING)
-  startedAt          DateTime                   @default(now())
-  completedAt        DateTime?
-  errorMessage       String?
-  nodesAnalyzed      Int                        @default(0)
-  edgesAnalyzed      Int                        @default(0)
-  findingsGenerated  Int                        @default(0)
-  riskScore          Float                      @default(0.0)
-  riskLevel          String                     @default("LOW")
-  metadata           Json?
-  createdAt          DateTime                   @default(now())
-  updatedAt          DateTime                   @updatedAt
-  findings           ArchitectureFinding[]
+  id                String                     @id @default(uuid())
+  repositoryId      String
+  repository        Repository                 @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  status            ArchitectureAnalysisStatus @default(PENDING)
+  startedAt         DateTime                   @default(now())
+  completedAt       DateTime?
+  errorMessage      String?
+  nodesAnalyzed     Int                        @default(0)
+  edgesAnalyzed     Int                        @default(0)
+  findingsGenerated Int                        @default(0)
+  riskScore         Float                      @default(0.0)
+  riskLevel         String                     @default("LOW")
+  metadata          Json?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  findings          ArchitectureFinding[]
 
   @@index([repositoryId])
   @@index([status])
 }
 
 model ArchitectureFinding {
-  id           String                       @id @default(uuid())
+  id           String                      @id @default(uuid())
   analysisId   String
-  analysis     ArchitectureAnalysis         @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  analysis     ArchitectureAnalysis        @relation(fields: [analysisId], references: [id], onDelete: Cascade)
   repositoryId String
-  repository   Repository                   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   Repository                  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   type         ArchitectureFindingType
   severity     ArchitectureFindingSeverity
   title        String
   description  String
-  confidence   Float                        @default(1.0)
+  confidence   Float                       @default(1.0)
   sourceNodeId String?
-  sourceNode   GraphNode?                   @relation("sourceFindingNode", fields: [sourceNodeId], references: [id], onDelete: SetNull)
+  sourceNode   GraphNode?                  @relation("sourceFindingNode", fields: [sourceNodeId], references: [id], onDelete: SetNull)
   targetNodeId String?
-  targetNode   GraphNode?                   @relation("targetFindingNode", fields: [targetNodeId], references: [id], onDelete: SetNull)
+  targetNode   GraphNode?                  @relation("targetFindingNode", fields: [targetNodeId], references: [id], onDelete: SetNull)
   evidence     Json?
   metadata     Json?
-  createdAt    DateTime                     @default(now())
+  createdAt    DateTime                    @default(now())
 
   @@unique([analysisId, type, title, sourceNodeId, targetNodeId])
   @@index([analysisId])
   @@index([repositoryId])
   @@index([type])
   @@index([severity])
+}
+
+model SystemDesign {
+  id           String     @id @default(uuid())
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  version      Int        @default(1)
+  generatedAt  DateTime   @default(now())
+  metadata     Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  diagrams     Diagram[]
+
+  @@index([repositoryId])
+  @@index([version])
+}
+
+model Diagram {
+  id             String        @id @default(uuid())
+  systemDesignId String
+  systemDesign   SystemDesign  @relation(fields: [systemDesignId], references: [id], onDelete: Cascade)
+  type           DiagramType
+  name           String
+  description    String?
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  nodes          DiagramNode[]
+  edges          DiagramEdge[]
+
+  @@unique([systemDesignId, type])
+  @@index([systemDesignId])
+  @@index([type])
+}
+
+model DiagramNode {
+  id            String          @id @default(uuid())
+  diagramId     String
+  diagram       Diagram         @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+  graphNodeId   String?
+  graphNode     GraphNode?      @relation(fields: [graphNodeId], references: [id], onDelete: SetNull)
+  type          DiagramNodeType
+  name          String
+  label         String
+  description   String?
+  x             Float           @default(0.0)
+  y             Float           @default(0.0)
+  width         Float           @default(160.0)
+  height        Float           @default(80.0)
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  outgoingEdges DiagramEdge[]   @relation("sourceDiagramNode")
+  incomingEdges DiagramEdge[]   @relation("targetDiagramNode")
+
+  @@unique([diagramId, name])
+  @@index([diagramId])
+  @@index([type])
+  @@index([graphNodeId])
+}
+
+model DiagramEdge {
+  id           String          @id @default(uuid())
+  diagramId    String
+  diagram      Diagram         @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+  sourceNodeId String
+  sourceNode   DiagramNode     @relation("sourceDiagramNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNodeId String
+  targetNode   DiagramNode     @relation("targetDiagramNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+  type         DiagramEdgeType
+  label        String?
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([diagramId, sourceNodeId, targetNodeId, type])
+  @@index([diagramId])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
+  @@index([type])
 }

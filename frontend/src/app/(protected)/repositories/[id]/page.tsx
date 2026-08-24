@@ -48,6 +48,8 @@ import {
   AnalysisHistoryItem,
 } from "@/components/architecture/ArchitectureHistory";
 import { ArchitectureFindingDetail } from "@/components/architecture/ArchitectureFindingDetail";
+import { SystemDesignStudio } from "@/components/system-design/SystemDesignStudio";
+import { SystemDesignGenerateButton } from "@/components/system-design/SystemDesignGenerateButton";
 
 interface RepositoryDetail {
   id: string;
@@ -90,8 +92,14 @@ export default function RepositoryDetailPage({
   const repositoryId = resolvedParams.id;
 
   const [activeTab, setActiveTab] = useState<
-    "architecture" | "ai" | "search" | "graph" | "files" | "syncs"
-  >("architecture");
+    | "system-design"
+    | "architecture"
+    | "ai"
+    | "search"
+    | "graph"
+    | "files"
+    | "syncs"
+  >("system-design");
 
   const [repo, setRepo] = useState<RepositoryDetail | null>(null);
   const [files, setFiles] = useState<RepositoryFileNode[]>([]);
@@ -280,6 +288,11 @@ export default function RepositoryDetailPage({
               GitHub ↗
             </a>
 
+            <SystemDesignGenerateButton
+              repositoryId={repo.id}
+              onGenerateStarted={loadRepositoryData}
+            />
+
             <ArchitectureAnalysisButton
               repositoryId={repo.id}
               onAnalysisStarted={loadRepositoryData}
@@ -348,6 +361,17 @@ export default function RepositoryDetailPage({
       {/* Navigation Tabs */}
       <div className="flex border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto">
         <button
+          onClick={() => setActiveTab("system-design")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+            activeTab === "system-design"
+              ? "border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400 font-semibold"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          }`}
+        >
+          System Design 📐
+        </button>
+
+        <button
           onClick={() => setActiveTab("architecture")}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
             activeTab === "architecture"
@@ -415,6 +439,12 @@ export default function RepositoryDetailPage({
       </div>
 
       {/* Tab Contents */}
+      {activeTab === "system-design" && (
+        <div className="space-y-6">
+          <SystemDesignStudio repositoryId={repo.id} />
+        </div>
+      )}
+
       {activeTab === "architecture" && (
         <div className="space-y-6">
           <ArchitectureOverview summary={archSummary} />

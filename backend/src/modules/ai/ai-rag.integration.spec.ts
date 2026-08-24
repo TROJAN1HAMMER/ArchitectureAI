@@ -23,6 +23,11 @@ import { ArchitecturePatternService } from "../architecture/architecture-pattern
 import { ArchitectureRiskService } from "../architecture/architecture-risk.service.js";
 import { ArchitectureAnalysisService } from "../architecture/architecture-analysis.service.js";
 import { ArchitectureContextService } from "../architecture/architecture-context.service.js";
+import { SystemDesignDiscoveryService } from "../system-design/system-design-discovery.service.js";
+import { DiagramGenerationService } from "../system-design/diagram-generation.service.js";
+import { DiagramLayoutService } from "../system-design/diagram-layout.service.js";
+import { SystemDesignService } from "../system-design/system-design.service.js";
+import { SystemDesignContextService } from "../system-design/system-design-context.service.js";
 import { ConfigModule } from "@nestjs/config";
 
 describe("Phase 7 AI Repository RAG Integration Test", () => {
@@ -111,6 +116,11 @@ describe("Phase 7 AI Repository RAG Integration Test", () => {
         ArchitectureRiskService,
         ArchitectureAnalysisService,
         ArchitectureContextService,
+        SystemDesignDiscoveryService,
+        DiagramGenerationService,
+        DiagramLayoutService,
+        SystemDesignService,
+        SystemDesignContextService,
         MockLLMProviderService,
         LLMProviderFactory,
         ConversationService,

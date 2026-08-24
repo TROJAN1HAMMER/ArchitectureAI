@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.7-system-design-studio] - 2026-08-24
+
+### Added
+
+- `SystemDesign`, `Diagram`, `DiagramNode`, and `DiagramEdge` models in Prisma schema with `DiagramType`, `DiagramNodeType`, and `DiagramEdgeType` enums
+- Migration `20260824155728_add_system_design_studio`
+- `SystemDesignDiscoveryService` for mapping Knowledge Graph nodes and edges into C4 elements (`PERSON`, `SYSTEM`, `CONTAINER`, `COMPONENT`, `DATABASE`, `EXTERNAL_SYSTEM`)
+- `DiagramGenerationService` generating C4 System Context, Container, and Component diagrams with evidence trails
+- `DiagramLayoutService` computing deterministic initial x/y coordinates and supporting layout resets
+- `SystemDesignService` orchestrating diagram generation, versioning, layout persistence, and Redis locking (`system-design:generate-lock:<repositoryId>`, TTL 600s, `EX 600 NX`)
+- `SystemDesignContextService` enriching Phase 7 RAG assistant context with C4 system design overview
+- REST API endpoints under `SystemDesignController`:
+  - `GET /api/v1/repositories/:id/system-design` (Get latest summary)
+  - `POST /api/v1/repositories/:id/system-design/generate` (Generate or regenerate C4 diagrams, 409 if locked)
+  - `GET /api/v1/repositories/:id/system-design/diagrams` (List diagrams)
+  - `GET /api/v1/repositories/:id/system-design/diagrams/:diagramId` (Get diagram detail)
+  - `PATCH /api/v1/repositories/:id/system-design/diagrams/:diagramId/nodes/:nodeId` (Update node x/y position)
+  - `POST /api/v1/repositories/:id/system-design/diagrams/:diagramId/reset-layout` (Reset deterministic layout)
+  - `DELETE /api/v1/repositories/:id/system-design` (Delete system design)
+- Frontend System Design Studio tab (`SystemDesignStudio`, `DiagramCanvas`, `DiagramToolbar`, `DiagramNode`, `DiagramEdge`, `DiagramLegend`, `DiagramNodeDetails`, `DiagramFilters`, `DiagramTypeSelector`, `SystemDesignOverview`, `SystemDesignGenerateButton`, `SystemDesignExportButton`) integrated into `/repositories/[id]` page
+- Unit test suites for discovery, generation, layout, system design service, controller, and dedicated integration test (`system-design.integration.spec.ts`)
+
+### Security
+
+- Strictly enforced user repository ownership verification on all system design endpoints (returns HTTP 404/403)
+- Redis generation locking prevents concurrent duplicate system design generation jobs (returns HTTP 409 Conflict)
+
 ## [0.1.6-architecture-discovery] - 2026-08-24
 
 ### Added

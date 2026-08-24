@@ -11,6 +11,7 @@ import { ContextRetrieverService } from "./context-retriever.service.js";
 import { ContextRankerService } from "./context-ranker.service.js";
 import { ContextBuilderService } from "./context-builder.service.js";
 import { ArchitectureContextService } from "../../architecture/architecture-context.service.js";
+import { SystemDesignContextService } from "../../system-design/system-design-context.service.js";
 import { LLMProviderFactory } from "../llm/llm-provider.factory.js";
 import { ConversationService } from "../conversation/conversation.service.js";
 import { MessageRole } from "@prisma/client";
@@ -51,6 +52,7 @@ export class RagService {
     private readonly contextRankerService: ContextRankerService,
     private readonly contextBuilderService: ContextBuilderService,
     private readonly architectureContextService: ArchitectureContextService,
+    private readonly systemDesignContextService: SystemDesignContextService,
     private readonly llmProviderFactory: LLMProviderFactory,
     private readonly conversationService: ConversationService,
   ) {}
@@ -150,6 +152,22 @@ export class RagService {
             repositoryId,
           );
         fullContextBlock = `${archContext}\n\n${fullContextBlock}`;
+      }
+
+      // 8c. System Design Context Enrichment if query relates to system design/diagrams/containers
+      if (
+        lowerQ.includes("diagram") ||
+        lowerQ.includes("container") ||
+        lowerQ.includes("system design") ||
+        lowerQ.includes("component") ||
+        lowerQ.includes("c4")
+      ) {
+        const sysDesignContext =
+          await this.systemDesignContextService.getSystemDesignContext(
+            userId,
+            repositoryId,
+          );
+        fullContextBlock = `${sysDesignContext}\n\n${fullContextBlock}`;
       }
 
       const systemPrompt = this.contextBuilderService.buildSystemPrompt();
