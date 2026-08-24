@@ -8,6 +8,7 @@ import { PrismaService } from "../../prisma/prisma.service.js";
 import { RedisService } from "../../common/redis/redis.service.js";
 import { GithubService } from "../github/github.service.js";
 import { GithubClientService } from "../github/github-client.service.js";
+import { RepositoryGraphBuilderService } from "../knowledge-graph/repository-graph-builder.service.js";
 import { ConflictException, ForbiddenException } from "@nestjs/common";
 import { SyncStatus, SyncTrigger } from "@prisma/client";
 
@@ -86,6 +87,10 @@ describe("RepositorySyncService Unit Tests", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
+    const mockGraphBuilder = {
+      buildGraph: jest.fn().mockResolvedValue({ status: "SUCCESS" }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RepositorySyncService,
@@ -93,6 +98,7 @@ describe("RepositorySyncService Unit Tests", () => {
         { provide: RedisService, useValue: mockRedisService },
         { provide: GithubService, useValue: mockGithubService },
         { provide: GithubClientService, useValue: mockGithubClient },
+        { provide: RepositoryGraphBuilderService, useValue: mockGraphBuilder },
       ],
     }).compile();
 

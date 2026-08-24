@@ -9,6 +9,7 @@ import { PrismaService } from "../../prisma/prisma.service.js";
 import { RedisService } from "../../common/redis/redis.service.js";
 import { GithubService } from "../github/github.service.js";
 import { GithubClientService } from "../github/github-client.service.js";
+import { RepositoryGraphBuilderService } from "../knowledge-graph/repository-graph-builder.service.js";
 import { SyncStatus, SyncTrigger } from "@prisma/client";
 import * as crypto from "crypto";
 
@@ -19,6 +20,7 @@ export class RepositorySyncService {
     private readonly redisService: RedisService,
     private readonly githubService: GithubService,
     private readonly githubClient: GithubClientService,
+    private readonly repositoryGraphBuilderService: RepositoryGraphBuilderService,
   ) {}
 
   async syncRepository(
@@ -148,7 +150,17 @@ export class RepositorySyncService {
         filesProcessed += chunk.length;
       }
 
-      // 8. Update RepositorySync to SUCCESS
+      // 8. Build Knowledge Graph from persisted files
+      await this.repositoryGraphBuilderService
+        .buildGraph(userId, repositoryId)
+        .catch((err) => {
+          // Log graph build failure but do not break sync state if file sync succeeded
+          console.error(
+            `Graph construction notice during sync for ${repositoryId}: ${err.message}`,
+          );
+        });
+
+      // 9. Update RepositorySync to SUCCESS
       await this.prisma.repositorySync.update({
         where: { id: syncRecordId },
         data: {
@@ -190,7 +202,7 @@ export class RepositorySyncService {
         `Repository synchronization failed: ${err.message}`,
       );
     } finally {
-      // 9. Safely release lock if held by current execution
+      // Safely release Redis lock if held by current execution
       const currentLock = await redis.get(lockKey);
       if (currentLock === lockValue) {
         await redis.del(lockKey);

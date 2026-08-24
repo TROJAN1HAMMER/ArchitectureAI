@@ -9,6 +9,14 @@ import {
   RepositoryTree,
   RepositoryFileNode,
 } from "@/components/repository/RepositoryTree";
+import {
+  GraphSummary,
+  GraphSummaryData,
+} from "@/components/knowledge-graph/GraphSummary";
+import { GraphBuildButton } from "@/components/knowledge-graph/GraphBuildButton";
+import { GraphNodeList } from "@/components/knowledge-graph/GraphNodeList";
+import { GraphEdgeList } from "@/components/knowledge-graph/GraphEdgeList";
+import { GraphNeighborhoodView } from "@/components/knowledge-graph/GraphNeighborhoodView";
 
 interface RepositoryDetail {
   id: string;
@@ -29,16 +37,6 @@ interface RepositoryDetail {
   lastSyncedAt: string | null;
   fileCount: number;
   syncStatus: string | null;
-  lastSync?: {
-    id: string;
-    status: string;
-    trigger: string;
-    startedAt: string;
-    completedAt: string | null;
-    filesDiscovered: number;
-    filesProcessed: number;
-    errorMessage: string | null;
-  } | null;
 }
 
 interface RepositorySyncHistoryItem {
@@ -60,9 +58,17 @@ export default function RepositoryDetailPage({
   const resolvedParams = use(params);
   const repositoryId = resolvedParams.id;
 
+  const [activeTab, setActiveTab] = useState<"files" | "graph" | "syncs">(
+    "files",
+  );
+
   const [repo, setRepo] = useState<RepositoryDetail | null>(null);
   const [files, setFiles] = useState<RepositoryFileNode[]>([]);
   const [syncs, setSyncs] = useState<RepositorySyncHistoryItem[]>([]);
+  const [graphSummary, setGraphSummary] = useState<GraphSummaryData | null>(
+    null,
+  );
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,15 +78,19 @@ export default function RepositoryDetailPage({
       setLoading(true);
       setError(null);
 
-      const [repoRes, treeRes, syncsRes] = await Promise.all([
+      const [repoRes, treeRes, syncsRes, graphRes] = await Promise.all([
         api.get(`/repositories/${repositoryId}`),
         api.get(`/repositories/${repositoryId}/tree?limit=500`),
         api.get(`/repositories/${repositoryId}/syncs?limit=5`),
+        api.get(`/repositories/${repositoryId}/graph`).catch(() => null),
       ]);
 
       setRepo(repoRes.data?.data || null);
       setFiles(treeRes.data?.data?.files || []);
       setSyncs(syncsRes.data?.data || []);
+      if (graphRes) {
+        setGraphSummary(graphRes.data?.data || null);
+      }
     } catch (err: any) {
       setError(
         err.response?.data?.error?.message ||
@@ -168,6 +178,11 @@ export default function RepositoryDetailPage({
               repositoryId={repo.id}
               onSyncComplete={loadRepositoryData}
             />
+
+            <GraphBuildButton
+              repositoryId={repo.id}
+              onBuildComplete={loadRepositoryData}
+            />
           </div>
         </div>
       </div>
@@ -213,20 +228,73 @@ export default function RepositoryDetailPage({
         </div>
       </div>
 
-      {/* Repository File Tree */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-          Repository File Tree
-        </h2>
-        <RepositoryTree files={files} />
+      {/* Knowledge Graph Summary Badge Header */}
+      <GraphSummary summary={graphSummary} />
+
+      {/* Navigation Tabs */}
+      <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+        <button
+          onClick={() => setActiveTab("files")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            activeTab === "files"
+              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          }`}
+        >
+          File Tree ({files.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab("graph")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            activeTab === "graph"
+              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          }`}
+        >
+          Knowledge Graph ({graphSummary?.nodes || 0} Nodes)
+        </button>
+
+        <button
+          onClick={() => setActiveTab("syncs")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+            activeTab === "syncs"
+              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          }`}
+        >
+          Sync History ({syncs.length})
+        </button>
       </div>
 
-      {/* Synchronization History */}
-      {syncs.length > 0 && (
+      {/* Tab Contents */}
+      {activeTab === "files" && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-            Recent Synchronizations
-          </h2>
+          <RepositoryTree files={files} />
+        </div>
+      )}
+
+      {activeTab === "graph" && (
+        <div className="space-y-6">
+          <GraphNeighborhoodView
+            repositoryId={repo.id}
+            selectedNodeId={selectedNodeId}
+            onClearSelection={() => setSelectedNodeId(null)}
+          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <GraphNodeList
+              repositoryId={repo.id}
+              onSelectNode={(nodeId) => setSelectedNodeId(nodeId)}
+            />
+
+            <GraphEdgeList repositoryId={repo.id} />
+          </div>
+        </div>
+      )}
+
+      {activeTab === "syncs" && (
+        <div className="space-y-4">
           <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider">

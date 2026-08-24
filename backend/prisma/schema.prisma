@@ -26,6 +26,31 @@ enum SyncTrigger {
   INITIAL
 }
 
+enum NodeType {
+  REPOSITORY
+  DIRECTORY
+  FILE
+  MODULE
+  CLASS
+  FUNCTION
+  INTERFACE
+  COMPONENT
+  API_ENDPOINT
+  DATABASE_MODEL
+}
+
+enum EdgeType {
+  CONTAINS
+  IMPORTS
+  DEPENDS_ON
+  CALLS
+  EXTENDS
+  IMPLEMENTS
+  EXPOSES
+  USES
+  DEFINES
+}
+
 model User {
   id            String                 @id @default(uuid())
   email         String                 @unique
@@ -98,23 +123,26 @@ model Repository {
   connections        RepositoryConnection[]
   syncs              RepositorySync[]
   files              RepositoryFile[]
+  graphNodes         GraphNode[]
+  graphEdges         GraphEdge[]
 
   @@index([githubRepositoryId])
 }
 
 model RepositoryFile {
-  id           String     @id @default(uuid())
+  id           String      @id @default(uuid())
   repositoryId String
-  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository   Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   path         String
   name         String
   extension    String?
-  size         Int        @default(0)
+  size         Int         @default(0)
   sha          String
-  type         String     @default("blob")
+  type         String      @default("blob")
   parentPath   String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  graphNodes   GraphNode[]
 
   @@unique([repositoryId, path])
   @@index([repositoryId])
@@ -154,4 +182,47 @@ model RepositorySync {
 
   @@index([repositoryId])
   @@index([status])
+}
+
+model GraphNode {
+  id            String          @id @default(uuid())
+  repositoryId  String
+  repository    Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  fileId        String?
+  file          RepositoryFile? @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  type          NodeType
+  name          String
+  qualifiedName String
+  path          String?
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  outgoingEdges GraphEdge[]     @relation("sourceNode")
+  incomingEdges GraphEdge[]     @relation("targetNode")
+
+  @@unique([repositoryId, qualifiedName])
+  @@index([repositoryId])
+  @@index([type])
+  @@index([fileId])
+  @@index([qualifiedName])
+}
+
+model GraphEdge {
+  id           String     @id @default(uuid())
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  sourceNodeId String
+  sourceNode   GraphNode  @relation("sourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNodeId String
+  targetNode   GraphNode  @relation("targetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+  type         EdgeType
+  metadata     Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([repositoryId, sourceNodeId, targetNodeId, type])
+  @@index([repositoryId])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
+  @@index([type])
 }

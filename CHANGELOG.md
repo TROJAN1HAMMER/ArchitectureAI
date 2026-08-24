@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3-knowledge-graph-foundation] - 2026-08-24
+
+### Added
+
+- `GraphNode` and `GraphEdge` models in Prisma schema with `NodeType` and `EdgeType` enums
+- PostgreSQL composite unique constraints `@@unique([repositoryId, qualifiedName])` and `@@unique([repositoryId, sourceNodeId, targetNodeId, type])`
+- `KnowledgeGraphService` supporting node/edge CRUD, stats breakdowns, filtering, and neighborhood sub-graph traversal
+- `RepositoryGraphBuilderService` for deterministic repository/directory/file hierarchy construction and Redis graph build locking (`repository:graph-lock:<id>`, 10-min TTL, NX)
+- Lightweight import extraction heuristics for TypeScript, JavaScript, Python, and Java files
+- Automatic knowledge graph construction triggered upon successful repository file tree sync
+- Knowledge Graph REST API endpoints:
+  - `GET /api/v1/repositories/:id/graph` (summary statistics)
+  - `POST /api/v1/repositories/:id/graph/build` (trigger manual graph construction)
+  - `GET /api/v1/repositories/:id/graph/nodes` (list/filter graph nodes)
+  - `GET /api/v1/repositories/:id/graph/edges` (list/filter graph edges)
+  - `GET /api/v1/repositories/:id/graph/neighborhood/:nodeId` (inspect node neighborhood)
+- Frontend Knowledge Graph interface (`GraphSummary`, `GraphBuildButton`, `GraphNodeList`, `GraphEdgeList`, `GraphNeighborhoodView`) embedded in `/repositories/[id]` page with dark/light mode support
+- Unit test suite for `KnowledgeGraphService` and `RepositoryGraphBuilderService`
+
+### Security
+
+- Enforced user-scoped repository ownership check across all knowledge graph endpoints
+- Non-owned or missing repository access returns HTTP 404/403 without leaking repository existence
+
 ## [0.1.2-repository-intelligence] - 2026-08-24
 
 ### Added
