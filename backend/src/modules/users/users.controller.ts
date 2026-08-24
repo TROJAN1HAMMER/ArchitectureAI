@@ -22,4 +22,14 @@ export class UsersController {
   async getMe(@CurrentUser("id") userId: string) {
     return this.usersService.findById(userId);
   }
+
+  @Get("dashboard")
+  @ApiOperation({ summary: "Get aggregated dashboard statistics" })
+  @ApiResponse({
+    status: 200,
+    description: "Dashboard stats returned successfully",
+  })
+  async getDashboard(@CurrentUser("id") userId: string) {
+    return this.usersService.getDashboardStats(userId);
+  }
 }

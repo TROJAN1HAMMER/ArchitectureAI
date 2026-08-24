@@ -42,6 +42,24 @@ export class GithubController {
   async callback(@Query() query: GithubCallbackDto, @Res() res: Response) {
     const frontendUrl =
       this.configService.get<string>("FRONTEND_URL") || "http://localhost:3000";
+
+    if (query.error || query.error_description) {
+      const errorMsg = query.error_description || query.error;
+      const message = encodeURIComponent(`GitHub OAuth error: ${errorMsg}`);
+      return res.redirect(
+        `${frontendUrl}/repositories?connected=false&error=${message}`,
+      );
+    }
+
+    if (!query.code || !query.state) {
+      const message = encodeURIComponent(
+        "OAuth callback is missing authorization code or state parameter",
+      );
+      return res.redirect(
+        `${frontendUrl}/repositories?connected=false&error=${message}`,
+      );
+    }
+
     try {
       await this.githubService.handleCallback(query.code, query.state);
       return res.redirect(`${frontendUrl}/repositories?connected=true`);

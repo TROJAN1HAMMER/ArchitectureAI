@@ -1,11 +1,23 @@
-import { IsNotEmpty, IsString } from "class-validator";
+import { IsOptional, IsString } from "class-validator";
 
 export class GithubCallbackDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  code!: string;
+  code?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  state!: string;
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  iss?: string;
+
+  @IsOptional()
+  @IsString()
+  error?: string;
+
+  @IsOptional()
+  @IsString()
+  error_description?: string;
 }

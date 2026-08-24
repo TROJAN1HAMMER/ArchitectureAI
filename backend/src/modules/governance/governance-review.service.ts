@@ -166,6 +166,20 @@ export class GovernanceReviewService {
     const latestSnapshot =
       await this.snapshotService.getLatestSnapshot(repositoryId);
 
+    if (!latestSnapshot) {
+      return {
+        repositoryId,
+        reviewStatus: "NOT_RUN",
+        currentRiskScore: 0.0,
+        riskDelta: 0.0,
+        latestSnapshotVersion: 0,
+        openViolationsCount: 0,
+        criticalViolationsCount: 0,
+        lastReviewedAt: null,
+        latestDiff: null,
+      };
+    }
+
     const violations = await this.prisma.governanceViolation.findMany({
       where: { repositoryId },
       orderBy: { createdAt: "desc" },
@@ -195,14 +209,14 @@ export class GovernanceReviewService {
     return {
       repositoryId,
       reviewStatus,
-      currentRiskScore: latestSnapshot?.riskScore || 0.0,
+      currentRiskScore: latestSnapshot.riskScore || 0.0,
       riskDelta: latestDiff ? latestDiff.riskDelta : 0.0,
-      latestSnapshotVersion: latestSnapshot?.version || 0,
+      latestSnapshotVersion: latestSnapshot.version || 0,
       openViolationsCount: openViolations.length,
       criticalViolationsCount: openViolations.filter(
         (v) => v.severity === "CRITICAL",
       ).length,
-      lastReviewedAt: latestSnapshot?.createdAt || null,
+      lastReviewedAt: latestSnapshot.createdAt || null,
       latestDiff,
     };
   }

@@ -14,8 +14,13 @@ import { SystemDesignService } from "./system-design.service.js";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 
+import { IsNumber } from "class-validator";
+
 export class UpdateNodePositionDto {
+  @IsNumber()
   x!: number;
+
+  @IsNumber()
   y!: number;
 }
 

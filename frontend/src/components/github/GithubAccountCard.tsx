@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import api from "@/services/api";
 
 interface GithubAccount {
@@ -16,7 +17,8 @@ interface GithubAccountCardProps {
   onAccountChange: (connected: boolean) => void;
 }
 
-export function GithubAccountCard({ onAccountChange }: GithubAccountCardProps) {
+function AccountCardContent({ onAccountChange }: GithubAccountCardProps) {
+  const searchParams = useSearchParams();
   const [account, setAccount] = useState<GithubAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,8 +44,21 @@ export function GithubAccountCard({ onAccountChange }: GithubAccountCardProps) {
     fetchAccount();
   }, [fetchAccount]);
 
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    const connectedParam = searchParams.get("connected");
+
+    if (errorParam) {
+      setError(decodeURIComponent(errorParam));
+    }
+    if (connectedParam === "true") {
+      fetchAccount();
+    }
+  }, [searchParams, fetchAccount]);
+
   const handleConnect = async () => {
     try {
+      setError(null);
       const res = await api.get("/github/connect");
       const url = res.data?.data?.url;
       if (url) {
@@ -149,24 +164,38 @@ export function GithubAccountCard({ onAccountChange }: GithubAccountCardProps) {
                 <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                   GitHub Email
                 </dt>
-                <dd className="mt-1 text-sm text-zinc-900 dark:text-zinc-100">
+                <dd className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                   {account.email}
                 </dd>
               </div>
             )}
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                Connected Since
-              </dt>
-              <dd className="mt-1 text-sm text-zinc-900 dark:text-zinc-100">
-                {account.connectedAt
-                  ? new Date(account.connectedAt).toLocaleDateString()
-                  : "-"}
-              </dd>
-            </div>
+            {account.connectedAt && (
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  Connected On
+                </dt>
+                <dd className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {new Date(account.connectedAt).toLocaleDateString()}
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
       )}
     </div>
+  );
+}
+
+export function GithubAccountCard(props: GithubAccountCardProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 animate-pulse">
+          <div className="h-6 w-1/3 rounded bg-zinc-200 dark:bg-zinc-800 mb-4" />
+        </div>
+      }
+    >
+      <AccountCardContent {...props} />
+    </Suspense>
   );
 }

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { ShieldAlert, Loader2 } from "lucide-react";
+import api from "@/services/api";
 
 interface GovernanceReviewButtonProps {
   repositoryId: string;
@@ -22,23 +23,19 @@ export const GovernanceReviewButton: React.FC<GovernanceReviewButtonProps> = ({
     setErrorMsg(null);
 
     try {
-      const res = await fetch(
-        `/api/v1/repositories/${repositoryId}/governance/review`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-
-      if (res.status === 409) {
-        setErrorMsg("Governance review is already in progress.");
-      } else if (!res.ok) {
-        throw new Error("Failed to execute governance review.");
-      } else {
-        onReviewCompleted();
-      }
+      await api.post(`/repositories/${repositoryId}/governance/review`);
+      onReviewCompleted();
     } catch (err: any) {
-      setErrorMsg(err.message || "Review request failed.");
+      if (err.response?.status === 409) {
+        setErrorMsg("Governance review is already in progress.");
+      } else {
+        setErrorMsg(
+          err.response?.data?.message ||
+            err.response?.data?.error?.message ||
+            err.message ||
+            "Failed to execute governance review.",
+        );
+      }
     } finally {
       setLoading(false);
     }

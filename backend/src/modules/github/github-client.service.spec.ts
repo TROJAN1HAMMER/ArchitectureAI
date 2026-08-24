@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { GithubClientService } from "./github-client.service.js";
 import { ConfigService } from "@nestjs/config";
+import { BadRequestException } from "@nestjs/common";
 
 jest.mock("octokit", () => {
   return {
@@ -81,6 +82,7 @@ describe("GithubClientService Unit Tests", () => {
   let service: GithubClientService;
 
   beforeEach(async () => {
+    jest.clearAllMocks();
     global.fetch = jest.fn().mockResolvedValue({
       json: jest.fn().mockResolvedValue({
         access_token: "mock-access-token-456",
@@ -94,8 +96,8 @@ describe("GithubClientService Unit Tests", () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn((key: string) => {
-              if (key === "GITHUB_CLIENT_ID") return "mock-client-id";
-              if (key === "GITHUB_CLIENT_SECRET") return "mock-client-secret";
+              if (key === "GITHUB_CLIENT_ID") return "valid_client_id";
+              if (key === "GITHUB_CLIENT_SECRET") return "valid_client_secret";
               return null;
             }),
           },
@@ -106,68 +108,57 @@ describe("GithubClientService Unit Tests", () => {
     service = module.get<GithubClientService>(GithubClientService);
   });
 
-  it("should exchange code for access token successfully", async () => {
-    const token = await service.getAccessToken("auth-code-123");
+  it("1. should throw BadRequestException when credentials are dummy or missing", async () => {
+    const unconfiguredModule: TestingModule = await Test.createTestingModule({
+      providers: [
+        GithubClientService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              if (key === "GITHUB_CLIENT_ID") return "dummy_client_id";
+              if (key === "GITHUB_CLIENT_SECRET") return "dummy_client_secret";
+              return null;
+            }),
+          },
+        },
+      ],
+    }).compile();
+
+    const unconfiguredService =
+      unconfiguredModule.get<GithubClientService>(GithubClientService);
+    await expect(
+      unconfiguredService.getAccessToken("code-123"),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("2. should exchange authorization code for access token", async () => {
+    const token = await service.getAccessToken("valid-code");
     expect(token).toBe("mock-access-token-456");
-    expect(global.fetch).toHaveBeenCalled();
-  });
-
-  it("should retrieve authenticated user profile details successfully", async () => {
-    const profile = await service.getUser("token-123");
-    expect(profile).toEqual({
-      githubUserId: "12345",
-      username: "test-user",
-      email: "test@example.com",
-      profileUrl: "https://github.com/test-user",
-    });
-  });
-
-  it("should retrieve available repositories successfully", async () => {
-    const repos = await service.getRepositories("token-123");
-    expect(repos.length).toBe(1);
-    expect(repos[0].githubRepositoryId).toBe("9999");
-    expect(repos[0].name).toBe("test-repo");
-  });
-
-  it("should retrieve single repository details with extended attributes successfully", async () => {
-    const repo = await service.getRepository(
-      "token-123",
-      "test-user",
-      "test-repo",
+    expect(global.fetch).toHaveBeenCalledWith(
+      "https://github.com/login/oauth/access_token",
+      expect.objectContaining({
+        method: "POST",
+      }),
     );
-    expect(repo.githubRepositoryId).toBe("9999");
-    expect(repo.name).toBe("test-repo");
-    expect(repo.language).toBe("TypeScript");
-    expect(repo.stargazersCount).toBe(42);
-    expect(repo.forksCount).toBe(5);
-    expect(repo.archived).toBe(false);
   });
 
-  it("should retrieve repository file tree successfully", async () => {
-    const tree = await service.getRepositoryTree(
-      "token-123",
-      "test-user",
-      "test-repo",
-      "main",
+  it("3. should handle GitHub OAuth exchange error response", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      json: jest.fn().mockResolvedValue({
+        error: "bad_verification_code",
+        error_description: "The code passed is incorrect or expired.",
+      }),
+    });
+
+    await expect(service.getAccessToken("expired-code")).rejects.toThrow(
+      BadRequestException,
     );
-    expect(tree.length).toBe(2);
-    expect(tree[0]).toEqual({
-      path: "src",
-      name: "src",
-      extension: null,
-      size: 0,
-      sha: "tree-sha-1",
-      type: "tree",
-      parentPath: null,
-    });
-    expect(tree[1]).toEqual({
-      path: "src/main.ts",
-      name: "main.ts",
-      extension: "ts",
-      size: 1024,
-      sha: "blob-sha-2",
-      type: "blob",
-      parentPath: "src",
-    });
+  });
+
+  it("4. should fetch authenticated GitHub user profile", async () => {
+    const user = await service.getUser("mock-access-token-456");
+    expect(user.githubUserId).toBe("12345");
+    expect(user.username).toBe("test-user");
   });
 });

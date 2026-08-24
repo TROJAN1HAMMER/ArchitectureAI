@@ -208,7 +208,7 @@ export class SystemDesignService {
     });
 
     if (!latest) {
-      return { diagrams: [] };
+      return [];
     }
 
     return this.prisma.diagram.findMany({

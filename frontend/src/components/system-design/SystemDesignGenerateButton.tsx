@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
+import api from "@/services/api";
 
 interface SystemDesignGenerateButtonProps {
   repositoryId: string;
@@ -20,23 +21,19 @@ export const SystemDesignGenerateButton: React.FC<
     setErrorMsg(null);
 
     try {
-      const res = await fetch(
-        `/api/v1/repositories/${repositoryId}/system-design/generate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-
-      if (res.status === 409) {
-        setErrorMsg("Generation is already in progress.");
-      } else if (!res.ok) {
-        throw new Error("Failed to generate system design.");
-      } else {
-        onGenerateStarted();
-      }
+      await api.post(`/repositories/${repositoryId}/system-design/generate`);
+      onGenerateStarted();
     } catch (err: any) {
-      setErrorMsg(err.message || "Generation request failed.");
+      if (err.response?.status === 409) {
+        setErrorMsg("Generation is already in progress.");
+      } else {
+        setErrorMsg(
+          err.response?.data?.message ||
+            err.response?.data?.error?.message ||
+            err.message ||
+            "Failed to generate system design.",
+        );
+      }
     } finally {
       setLoading(false);
     }

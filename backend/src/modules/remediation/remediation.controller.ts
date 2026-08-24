@@ -14,7 +14,11 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard.js";
 import { CurrentUser } from "../auth/decorators/current-user.decorator.js";
 import { RemediationService } from "./remediation.service.js";
 
+import { IsString, IsNotEmpty } from "class-validator";
+
 class CreateRemediationPlanDto {
+  @IsString()
+  @IsNotEmpty()
   findingId!: string;
 }
 

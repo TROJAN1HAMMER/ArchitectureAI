@@ -36,8 +36,13 @@ export const SystemDesignStudio: React.FC<SystemDesignStudioProps> = ({
         api.get(`/repositories/${repositoryId}/system-design/diagrams`),
       ]);
 
-      setSummary(sumRes.data.data);
-      const list = diagRes.data.data || [];
+      setSummary(sumRes.data?.data || null);
+      const raw = diagRes.data?.data;
+      const list: any[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.diagrams)
+          ? raw.diagrams
+          : [];
       setDiagrams(list);
 
       const match =
@@ -109,6 +114,16 @@ export const SystemDesignStudio: React.FC<SystemDesignStudioProps> = ({
                 selectedNodeType={selectedNodeFilter}
                 onSelectNode={(n) => setInspectingNode(n)}
                 onUpdateNodePos={() => {}}
+                onReanalyze={async () => {
+                  try {
+                    await api.post(
+                      `/repositories/${repositoryId}/system-design/generate`,
+                    );
+                    await loadData();
+                  } catch (e) {
+                    console.error("Regenerate failed", e);
+                  }
+                }}
               />
             )}
           </div>

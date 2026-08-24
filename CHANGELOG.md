@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-08-25
+
+### Core Platform & System Refinement
+
+- **Full End-to-End Pipeline Integration**: Verified live synchronization, AST Knowledge Graph construction, Semantic Indexing with pgvector, C4 System Design Studio, Architecture Audit, Governance Policy Enforcement, AI Assistant RAG, and Autonomous Remediation.
+- **C4 Component Diagram Discovery Engine**: Enhanced `SystemDesignDiscoveryService` with universal multi-language component discovery across repository topologies (APIs, Services, Modules, Data Layer) and automatic Knowledge Graph cross-component dependency edge mapping.
+- **Responsive Workspace UI**: Eliminated page-level horizontal overflow across all viewports; introduced an internally scrollable compact tab bar with Lucide icons, category dividers, and clear active contrast states.
+- **C4 Interactive Canvas & Auto-fit Viewport**: Upgraded `DiagramCanvas` with dynamic bounding-box `viewBox` calculations, floating Zoom In/Out/Fit controls, and actionable empty states.
+- **Audit Findings to Remediation Bridge**: Connected discovered architectural findings directly to automated remediation plan generation with one-click proposals.
+- **Governance vs Architecture Audit Distinction**: Added clear context banners distinguishing policy compliance vs structural code analysis.
+- **Action Hierarchy & Loading States**: Standardized repository action button hierarchy (Primary, Secondary, Tertiary, External) with responsive wrapping and live feedback.
+- **Shared Constants & Versioning**: Updated `APP_VERSION` to `1.0.0` in `@architect-ai/shared`.
+
 ## [0.2.1-enterprise-topology] - 2026-08-24
 
 ### Added

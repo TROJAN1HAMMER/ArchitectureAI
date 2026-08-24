@@ -253,11 +253,12 @@ export class RepositoriesService {
     await this.verifyOwnership(userId, id);
 
     const safeLimit = Math.min(Math.max(1, limit), 50);
-    return this.prisma.repositorySync.findMany({
+    const syncs = await this.prisma.repositorySync.findMany({
       where: { repositoryId: id },
       take: safeLimit,
       orderBy: { startedAt: "desc" },
     });
+    return { syncs };
   }
 
   async getRepositoryTree(

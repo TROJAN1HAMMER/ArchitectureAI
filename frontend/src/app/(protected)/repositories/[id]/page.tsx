@@ -332,7 +332,7 @@ export default function RepositoryDetailPage({
   }
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-8 max-w-7xl mx-auto w-full overflow-x-hidden">
       {/* Header Navigation & Actions */}
       <div className="space-y-4">
         <Link
@@ -342,10 +342,10 @@ export default function RepositoryDetailPage({
           ← Back to Repositories
         </Link>
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6">
-          <div className="space-y-1">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-zinc-200 dark:border-zinc-800 pb-6">
+          <div className="space-y-1.5">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                 {repo.fullName}
               </h1>
               {repo.isPrivate ? (
@@ -362,25 +362,19 @@ export default function RepositoryDetailPage({
             </div>
 
             {repo.description && (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-2xl">
+              <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 max-w-2xl leading-relaxed">
                 {repo.description}
               </p>
             )}
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <a
-              href={repo.htmlUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 transition dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              GitHub ↗
-            </a>
-
-            <GovernanceReviewButton
+          {/* Action Buttons with clear visual hierarchy */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Primary CTAs */}
+            <ArchitectureAnalysisButton
               repositoryId={repo.id}
-              onReviewCompleted={loadRepositoryData}
+              onAnalysisStarted={loadRepositoryData}
+              isRunning={archSummary?.status === "RUNNING"}
             />
 
             <SystemDesignGenerateButton
@@ -388,10 +382,10 @@ export default function RepositoryDetailPage({
               onGenerateStarted={loadRepositoryData}
             />
 
-            <ArchitectureAnalysisButton
+            {/* Secondary CTAs */}
+            <GovernanceReviewButton
               repositoryId={repo.id}
-              onAnalysisStarted={loadRepositoryData}
-              isRunning={archSummary?.status === "RUNNING"}
+              onReviewCompleted={loadRepositoryData}
             />
 
             <RepositorySyncButton
@@ -399,6 +393,7 @@ export default function RepositoryDetailPage({
               onSyncComplete={loadRepositoryData}
             />
 
+            {/* Tertiary Actions */}
             <GraphBuildButton
               repositoryId={repo.id}
               onBuildComplete={loadRepositoryData}
@@ -408,6 +403,16 @@ export default function RepositoryDetailPage({
               repositoryId={repo.id}
               onIndexingComplete={loadRepositoryData}
             />
+
+            {/* External Link */}
+            <a
+              href={repo.htmlUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 transition dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              GitHub ↗
+            </a>
           </div>
         </div>
       </div>
@@ -453,111 +458,129 @@ export default function RepositoryDetailPage({
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto">
+      {/* Navigation Tabs Bar (Scrollable internally without page horizontal overflow) */}
+      <div className="w-full max-w-full overflow-x-auto scrollbar-none flex items-center gap-1.5 p-1.5 bg-gray-900/70 border border-gray-800 rounded-xl shadow-inner">
         <button
           onClick={() => setActiveTab("governance")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+          className={`px-3.5 py-2 text-xs rounded-lg font-medium transition whitespace-nowrap flex items-center gap-2 ${
             activeTab === "governance"
-              ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 font-semibold"
-              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+              ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-semibold shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-gray-800/60"
           }`}
         >
-          Governance 🛡️
+          <span>🛡️</span> Governance
         </button>
 
         <button
           onClick={() => setActiveTab("system-design")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+          className={`px-3.5 py-2 text-xs rounded-lg font-medium transition whitespace-nowrap flex items-center gap-2 ${
             activeTab === "system-design"
-              ? "border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400 font-semibold"
-              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+              ? "bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 font-semibold shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-gray-800/60"
           }`}
         >
-          System Design 📐
+          <span>📐</span> System Design
         </button>
 
         <button
           onClick={() => setActiveTab("remediation")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+          className={`px-3.5 py-2 text-xs rounded-lg font-medium transition whitespace-nowrap flex items-center gap-2 ${
             activeTab === "remediation"
-              ? "border-amber-600 text-amber-600 dark:border-amber-400 dark:text-amber-400 font-semibold"
-              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+              ? "bg-amber-600/20 text-amber-400 border border-amber-500/30 font-semibold shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-gray-800/60"
           }`}
         >
-          Remediation 🔧
+          <span>🔧</span> Remediation
         </button>
 
         <button
           onClick={() => setActiveTab("architecture")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+          className={`px-3.5 py-2 text-xs rounded-lg font-medium transition whitespace-nowrap flex items-center gap-2 ${
             activeTab === "architecture"
-              ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 font-semibold"
-              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+              ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 font-semibold shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-gray-800/60"
           }`}
         >
-          Architecture Audit 🛡️
+          <span>⚡</span> Architecture Audit
         </button>
+
+        <div className="h-4 w-px bg-gray-800 mx-1 hidden sm:block" />
 
         <button
           onClick={() => setActiveTab("ai")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+          className={`px-3.5 py-2 text-xs rounded-lg font-medium transition whitespace-nowrap flex items-center gap-2 ${
             activeTab === "ai"
-              ? "border-cyan-600 text-cyan-600 dark:border-cyan-400 dark:text-cyan-400 font-semibold"
-              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+              ? "bg-purple-600/20 text-purple-400 border border-purple-500/30 font-semibold shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-gray-800/60"
           }`}
         >
-          AI Assistant ✨
+          <span>✨</span> AI Assistant
         </button>
 
         <button
           onClick={() => setActiveTab("search")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+          className={`px-3.5 py-2 text-xs rounded-lg font-medium transition whitespace-nowrap flex items-center gap-2 ${
             activeTab === "search"
-              ? "border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400 font-semibold"
-              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+              ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 font-semibold shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-gray-800/60"
           }`}
         >
-          Semantic Search ({semanticStatus?.totalEmbeddings || 0} Vectors)
+          <span>🔍</span> Semantic Search
         </button>
 
         <button
           onClick={() => setActiveTab("graph")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+          className={`px-3.5 py-2 text-xs rounded-lg font-medium transition whitespace-nowrap flex items-center gap-2 ${
             activeTab === "graph"
-              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100 font-semibold"
-              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+              ? "bg-blue-600/20 text-blue-400 border border-blue-500/30 font-semibold shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-gray-800/60"
           }`}
         >
-          Knowledge Graph ({graphSummary?.nodes || 0} Nodes)
+          <span>🕸️</span> Knowledge Graph
         </button>
+
+        <div className="h-4 w-px bg-gray-800 mx-1 hidden sm:block" />
 
         <button
           onClick={() => setActiveTab("files")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+          className={`px-3.5 py-2 text-xs rounded-lg font-medium transition whitespace-nowrap flex items-center gap-2 ${
             activeTab === "files"
-              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100 font-semibold"
-              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+              ? "bg-gray-800 text-white font-semibold shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-gray-800/60"
           }`}
         >
-          File Tree ({files.length})
+          <span>📁</span> Files ({files.length})
         </button>
 
         <button
           onClick={() => setActiveTab("syncs")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+          className={`px-3.5 py-2 text-xs rounded-lg font-medium transition whitespace-nowrap flex items-center gap-2 ${
             activeTab === "syncs"
-              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100 font-semibold"
-              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+              ? "bg-gray-800 text-white font-semibold shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200 hover:bg-gray-800/60"
           }`}
         >
-          Sync History ({syncs.length})
+          <span>📜</span> Syncs ({syncs.length})
         </button>
       </div>
 
       {/* Tab Contents */}
       {activeTab === "governance" && (
         <div className="space-y-6">
+          {/* Governance vs Audit Clarity Helper */}
+          <div className="p-3.5 bg-indigo-950/40 border border-indigo-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-indigo-300">
+            <span className="flex items-center gap-2">
+              <span className="font-semibold text-white">
+                Policy Compliance Review:
+              </span>
+              Evaluates repository architecture snapshots against active
+              organizational governance rules.
+            </span>
+            <span className="text-[11px] text-indigo-400/80 font-mono">
+              Enforced Policy Rules
+            </span>
+          </div>
+
           <GovernanceOverview summary={govSummary} />
 
           <GovernanceViolationTable
@@ -576,7 +599,11 @@ export default function RepositoryDetailPage({
 
       {activeTab === "remediation" && (
         <div className="space-y-6">
-          <RemediationOverview repositoryId={repo.id} />
+          <RemediationOverview
+            repositoryId={repo.id}
+            findings={archFindings}
+            onTriggerAnalysis={() => setActiveTab("architecture")}
+          />
         </div>
       )}
 
@@ -588,6 +615,20 @@ export default function RepositoryDetailPage({
 
       {activeTab === "architecture" && (
         <div className="space-y-6">
+          {/* Governance vs Audit Clarity Helper */}
+          <div className="p-3.5 bg-cyan-950/40 border border-cyan-500/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-cyan-300">
+            <span className="flex items-center gap-2">
+              <span className="font-semibold text-white">
+                Structural Architecture Audit:
+              </span>
+              Deep AST & graph analysis calculating coupling metrics, boundary
+              leaks, and structural anti-patterns.
+            </span>
+            <span className="text-[11px] text-cyan-400/80 font-mono">
+              Structural Heuristics & Signals
+            </span>
+          </div>
+
           <ArchitectureOverview summary={archSummary} />
           {archSummary && archSummary.status === "SUCCESS" && (
             <>
@@ -735,7 +776,9 @@ export default function RepositoryDetailPage({
       {/* Finding Detail Modals */}
       <ArchitectureFindingDetail
         finding={selectedFinding}
+        repositoryId={repo.id}
         onClose={() => setSelectedFinding(null)}
+        onPlanCreated={loadRepositoryData}
       />
 
       <GovernanceFindingDetail

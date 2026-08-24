@@ -2,6 +2,22 @@ import { Injectable, BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Octokit } from "octokit";
 
+function isConfigured(value?: string): boolean {
+  if (!value) return false;
+  const val = value.trim();
+  if (
+    val === "" ||
+    val === "dummy_client_id" ||
+    val === "dummy_client_secret" ||
+    val === "mock_github_client_id" ||
+    val === "mock_github_client_secret" ||
+    val.startsWith("YOUR_")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 @Injectable()
 export class GithubClientService {
   constructor(private readonly configService: ConfigService) {}
@@ -10,8 +26,10 @@ export class GithubClientService {
     const clientId = this.configService.get<string>("GITHUB_CLIENT_ID");
     const clientSecret = this.configService.get<string>("GITHUB_CLIENT_SECRET");
 
-    if (!clientId || !clientSecret) {
-      throw new BadRequestException("GitHub client configuration is missing");
+    if (!isConfigured(clientId) || !isConfigured(clientSecret)) {
+      throw new BadRequestException(
+        "GitHub OAuth integration is not configured. Please set valid GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in backend environment variables (.env).",
+      );
     }
 
     try {
@@ -148,55 +166,29 @@ export class GithubClientService {
             item.path && (item.type === "blob" || item.type === "tree"),
         )
         .map((item: any) => {
-          const pathParts = item.path.split("/");
-          const name = pathParts[pathParts.length - 1];
+          const filePath: string = item.path;
+          const lastSlash = filePath.lastIndexOf("/");
+          const name =
+            lastSlash >= 0 ? filePath.substring(lastSlash + 1) : filePath;
           const parentPath =
-            pathParts.length > 1 ? pathParts.slice(0, -1).join("/") : null;
-
-          let extension: string | null = null;
-          if (item.type === "blob" && name.includes(".")) {
-            const extParts = name.split(".");
-            if (extParts.length > 1) {
-              extension = extParts[extParts.length - 1].toLowerCase();
-            }
-          }
+            lastSlash >= 0 ? filePath.substring(0, lastSlash) : null;
+          const lastDot = name.lastIndexOf(".");
+          const extension =
+            lastDot > 0 ? name.substring(lastDot).toLowerCase() : null;
 
           return {
-            path: item.path,
+            path: filePath,
             name,
             extension,
-            size: item.size || 0,
-            sha: item.sha || "",
-            type: item.type === "tree" ? "tree" : "blob",
             parentPath,
+            type: item.type === "tree" ? "tree" : "blob",
+            sha: item.sha,
+            size: item.size || 0,
           };
         });
     } catch (err: any) {
       throw new BadRequestException(
         `Failed to retrieve GitHub repository tree: ${err.message}`,
-      );
-    }
-  }
-
-  async getFileContent(
-    token: string,
-    owner: string,
-    repo: string,
-    path: string,
-    ref?: string,
-  ) {
-    try {
-      const octokit = new Octokit({ auth: token });
-      const { data } = await octokit.rest.repos.getContent({
-        owner,
-        repo,
-        path,
-        ref,
-      });
-      return data;
-    } catch (err: any) {
-      throw new BadRequestException(
-        `Failed to retrieve GitHub file content: ${err.message}`,
       );
     }
   }

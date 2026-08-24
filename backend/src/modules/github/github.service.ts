@@ -10,6 +10,22 @@ import { GithubClientService } from "./github-client.service.js";
 import { encrypt, decrypt } from "../../common/utils/encryption.js";
 import * as crypto from "crypto";
 
+function isConfigured(value?: string): boolean {
+  if (!value) return false;
+  const val = value.trim();
+  if (
+    val === "" ||
+    val === "dummy_client_id" ||
+    val === "dummy_client_secret" ||
+    val === "mock_github_client_id" ||
+    val === "mock_github_client_secret" ||
+    val.startsWith("YOUR_")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 @Injectable()
 export class GithubService {
   constructor(
@@ -21,11 +37,16 @@ export class GithubService {
 
   async getConnectUrl(userId: string): Promise<string> {
     const clientId = this.configService.get<string>("GITHUB_CLIENT_ID");
+    const clientSecret = this.configService.get<string>("GITHUB_CLIENT_SECRET");
     const redirectUri = this.configService.get<string>("GITHUB_CALLBACK_URL");
 
-    if (!clientId || !redirectUri) {
+    if (
+      !isConfigured(clientId) ||
+      !isConfigured(clientSecret) ||
+      !isConfigured(redirectUri)
+    ) {
       throw new BadRequestException(
-        "GitHub integration is not fully configured",
+        "GitHub OAuth integration is not configured. Please set valid GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, and GITHUB_CALLBACK_URL in your backend environment variables (.env).",
       );
     }
 
@@ -37,8 +58,8 @@ export class GithubService {
 
     const scopes = ["repo", "user:email"].join(" ");
     const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
+      client_id: clientId!,
+      redirect_uri: redirectUri!,
       scope: scopes,
       state: state,
     });

@@ -15,8 +15,15 @@ import { ConversationService } from "./conversation/conversation.service.js";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 
+import { IsString, IsNotEmpty, IsOptional } from "class-validator";
+
 export class AIChatDto {
+  @IsString()
+  @IsNotEmpty()
   message!: string;
+
+  @IsString()
+  @IsOptional()
   conversationId?: string;
 }
 

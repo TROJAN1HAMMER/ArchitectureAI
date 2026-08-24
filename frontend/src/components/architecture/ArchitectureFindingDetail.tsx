@@ -1,18 +1,56 @@
 "use client";
 
-import React from "react";
-import { X, FileCode, ShieldAlert } from "lucide-react";
+import React, { useState } from "react";
+import {
+  X,
+  FileCode,
+  ShieldAlert,
+  Wrench,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 import { FindingItem } from "./ArchitectureFindings";
+import api from "@/services/api";
 
 interface ArchitectureFindingDetailProps {
   finding: FindingItem | null;
+  repositoryId?: string;
   onClose: () => void;
+  onPlanCreated?: () => void;
 }
 
 export const ArchitectureFindingDetail: React.FC<
   ArchitectureFindingDetailProps
-> = ({ finding, onClose }) => {
+> = ({ finding, repositoryId, onClose, onPlanCreated }) => {
+  const [creatingPlan, setCreatingPlan] = useState(false);
+  const [planSuccess, setPlanSuccess] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+
   if (!finding) return null;
+
+  const handleProposeRemediation = async () => {
+    if (!repositoryId) return;
+    try {
+      setCreatingPlan(true);
+      setPlanError(null);
+      await api.post(`/repositories/${repositoryId}/remediations`, {
+        findingId: finding.id,
+      });
+      setPlanSuccess(true);
+      if (onPlanCreated) {
+        onPlanCreated();
+      }
+    } catch (err: any) {
+      setPlanError(
+        err.response?.data?.message ||
+          err.response?.data?.error?.message ||
+          err.message ||
+          "Failed to create remediation plan",
+      );
+    } finally {
+      setCreatingPlan(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -52,7 +90,13 @@ export const ArchitectureFindingDetail: React.FC<
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t border-gray-800 text-xs text-gray-400">
+        {planError && (
+          <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+            {planError}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-800 text-xs text-gray-400">
           <div className="flex items-center gap-1.5">
             <ShieldAlert className="w-4 h-4 text-gray-500" /> Finding
             Confidence:{" "}
@@ -60,12 +104,39 @@ export const ArchitectureFindingDetail: React.FC<
               {Math.round(finding.confidence * 100)}%
             </span>
           </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-xs font-semibold transition"
-          >
-            Close Detail
-          </button>
+
+          <div className="flex items-center gap-2">
+            {repositoryId && (
+              <button
+                onClick={handleProposeRemediation}
+                disabled={creatingPlan || planSuccess}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+              >
+                {creatingPlan ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Proposing
+                    Plan...
+                  </>
+                ) : planSuccess ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />{" "}
+                    Plan Proposed
+                  </>
+                ) : (
+                  <>
+                    <Wrench className="w-3.5 h-3.5" /> Propose Remediation Plan
+                  </>
+                )}
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="px-3.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-xs font-semibold transition"
+            >
+              Close Detail
+            </button>
+          </div>
         </div>
       </div>
     </div>

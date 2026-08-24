@@ -1,2 +1,2 @@
-export const APP_VERSION = "0.2.1-enterprise-topology";
+export const APP_VERSION = "1.0.0";
 export const DEFAULT_PORT = 3000;

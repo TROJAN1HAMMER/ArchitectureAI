@@ -1,7 +1,6 @@
-"use client";
-
 import React, { useState } from "react";
 import { Play, Loader2 } from "lucide-react";
+import api from "@/services/api";
 
 interface ArchitectureAnalysisButtonProps {
   repositoryId: string;
@@ -20,23 +19,19 @@ export const ArchitectureAnalysisButton: React.FC<
     setErrorMsg(null);
 
     try {
-      const res = await fetch(
-        `/api/v1/repositories/${repositoryId}/architecture/analyze`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        },
-      );
-
-      if (res.status === 409) {
-        setErrorMsg("Analysis is already in progress.");
-      } else if (!res.ok) {
-        throw new Error("Failed to trigger architecture analysis.");
-      } else {
-        onAnalysisStarted();
-      }
+      await api.post(`/repositories/${repositoryId}/architecture/analyze`);
+      onAnalysisStarted();
     } catch (err: any) {
-      setErrorMsg(err.message || "Analysis request failed.");
+      if (err.response?.status === 409) {
+        setErrorMsg("Analysis is already in progress.");
+      } else {
+        setErrorMsg(
+          err.response?.data?.message ||
+            err.response?.data?.error?.message ||
+            err.message ||
+            "Failed to trigger architecture analysis.",
+        );
+      }
     } finally {
       setLoading(false);
     }
