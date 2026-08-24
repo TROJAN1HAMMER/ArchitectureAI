@@ -10,6 +10,7 @@ import { RedisService } from "../../common/redis/redis.service.js";
 import { GithubService } from "../github/github.service.js";
 import { GithubClientService } from "../github/github-client.service.js";
 import { RepositoryGraphBuilderService } from "../knowledge-graph/repository-graph-builder.service.js";
+import { SemanticIndexerService } from "../semantic-search/semantic-indexer.service.js";
 import { SyncStatus, SyncTrigger } from "@prisma/client";
 import * as crypto from "crypto";
 
@@ -21,6 +22,7 @@ export class RepositorySyncService {
     private readonly githubService: GithubService,
     private readonly githubClient: GithubClientService,
     private readonly repositoryGraphBuilderService: RepositoryGraphBuilderService,
+    private readonly semanticIndexerService: SemanticIndexerService,
   ) {}
 
   async syncRepository(
@@ -154,13 +156,21 @@ export class RepositorySyncService {
       await this.repositoryGraphBuilderService
         .buildGraph(userId, repositoryId)
         .catch((err) => {
-          // Log graph build failure but do not break sync state if file sync succeeded
           console.error(
             `Graph construction notice during sync for ${repositoryId}: ${err.message}`,
           );
         });
 
-      // 9. Update RepositorySync to SUCCESS
+      // 9. Perform Semantic Indexing
+      await this.semanticIndexerService
+        .indexRepository(userId, repositoryId)
+        .catch((err) => {
+          console.error(
+            `Semantic indexing notice during sync for ${repositoryId}: ${err.message}`,
+          );
+        });
+
+      // 10. Update RepositorySync to SUCCESS
       await this.prisma.repositorySync.update({
         where: { id: syncRecordId },
         data: {

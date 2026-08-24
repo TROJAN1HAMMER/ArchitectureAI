@@ -125,6 +125,8 @@ model Repository {
   files              RepositoryFile[]
   graphNodes         GraphNode[]
   graphEdges         GraphEdge[]
+  embeddings         Embedding[]
+  semanticIndexes    SemanticIndex[]
 
   @@index([githubRepositoryId])
 }
@@ -143,6 +145,7 @@ model RepositoryFile {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   graphNodes   GraphNode[]
+  embeddings   Embedding[]
 
   @@unique([repositoryId, path])
   @@index([repositoryId])
@@ -199,6 +202,7 @@ model GraphNode {
   updatedAt     DateTime        @updatedAt
   outgoingEdges GraphEdge[]     @relation("sourceNode")
   incomingEdges GraphEdge[]     @relation("targetNode")
+  embeddings    Embedding[]
 
   @@unique([repositoryId, qualifiedName])
   @@index([repositoryId])
@@ -225,4 +229,48 @@ model GraphEdge {
   @@index([sourceNodeId])
   @@index([targetNodeId])
   @@index([type])
+}
+
+model Embedding {
+  id           String          @id @default(uuid())
+  repositoryId String
+  repository   Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  fileId       String?
+  file         RepositoryFile? @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  graphNodeId  String?
+  graphNode    GraphNode?      @relation(fields: [graphNodeId], references: [id], onDelete: Cascade)
+  contentHash  String
+  content      String
+  chunkIndex   Int             @default(0)
+  totalChunks  Int             @default(1)
+  model        String
+  dimensions   Int
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([repositoryId, fileId, chunkIndex, model])
+  @@index([repositoryId])
+  @@index([fileId])
+  @@index([contentHash])
+  @@index([model])
+}
+
+model SemanticIndex {
+  id              String      @id @default(uuid())
+  repositoryId    String
+  repository      Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  status          SyncStatus  @default(PENDING)
+  filesDiscovered Int         @default(0)
+  filesProcessed  Int         @default(0)
+  filesSkipped    Int         @default(0)
+  filesFailed     Int         @default(0)
+  startedAt       DateTime    @default(now())
+  completedAt     DateTime?
+  errorMessage    String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([repositoryId])
+  @@index([status])
 }

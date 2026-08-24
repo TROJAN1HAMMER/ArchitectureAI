@@ -17,6 +17,16 @@ import { GraphBuildButton } from "@/components/knowledge-graph/GraphBuildButton"
 import { GraphNodeList } from "@/components/knowledge-graph/GraphNodeList";
 import { GraphEdgeList } from "@/components/knowledge-graph/GraphEdgeList";
 import { GraphNeighborhoodView } from "@/components/knowledge-graph/GraphNeighborhoodView";
+import {
+  SemanticIndexStatus,
+  SemanticIndexStatusData,
+} from "@/components/semantic-search/SemanticIndexStatus";
+import { SemanticIndexButton } from "@/components/semantic-search/SemanticIndexButton";
+import { SemanticSearchBar } from "@/components/semantic-search/SemanticSearchBar";
+import {
+  SemanticSearchResults,
+  SemanticSearchResultItem,
+} from "@/components/semantic-search/SemanticSearchResults";
 
 interface RepositoryDetail {
   id: string;
@@ -58,9 +68,9 @@ export default function RepositoryDetailPage({
   const resolvedParams = use(params);
   const repositoryId = resolvedParams.id;
 
-  const [activeTab, setActiveTab] = useState<"files" | "graph" | "syncs">(
-    "files",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "files" | "graph" | "search" | "syncs"
+  >("search");
 
   const [repo, setRepo] = useState<RepositoryDetail | null>(null);
   const [files, setFiles] = useState<RepositoryFileNode[]>([]);
@@ -68,7 +78,15 @@ export default function RepositoryDetailPage({
   const [graphSummary, setGraphSummary] = useState<GraphSummaryData | null>(
     null,
   );
+  const [semanticStatus, setSemanticStatus] =
+    useState<SemanticIndexStatusData | null>(null);
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchResults, setSearchResults] = useState<
+    SemanticSearchResultItem[]
+  >([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,18 +96,25 @@ export default function RepositoryDetailPage({
       setLoading(true);
       setError(null);
 
-      const [repoRes, treeRes, syncsRes, graphRes] = await Promise.all([
-        api.get(`/repositories/${repositoryId}`),
-        api.get(`/repositories/${repositoryId}/tree?limit=500`),
-        api.get(`/repositories/${repositoryId}/syncs?limit=5`),
-        api.get(`/repositories/${repositoryId}/graph`).catch(() => null),
-      ]);
+      const [repoRes, treeRes, syncsRes, graphRes, searchStatusRes] =
+        await Promise.all([
+          api.get(`/repositories/${repositoryId}`),
+          api.get(`/repositories/${repositoryId}/tree?limit=500`),
+          api.get(`/repositories/${repositoryId}/syncs?limit=5`),
+          api.get(`/repositories/${repositoryId}/graph`).catch(() => null),
+          api
+            .get(`/repositories/${repositoryId}/semantic-index`)
+            .catch(() => null),
+        ]);
 
       setRepo(repoRes.data?.data || null);
       setFiles(treeRes.data?.data?.files || []);
       setSyncs(syncsRes.data?.data || []);
       if (graphRes) {
         setGraphSummary(graphRes.data?.data || null);
+      }
+      if (searchStatusRes) {
+        setSemanticStatus(searchStatusRes.data?.data || null);
       }
     } catch (err: any) {
       setError(
@@ -104,6 +129,21 @@ export default function RepositoryDetailPage({
   useEffect(() => {
     loadRepositoryData();
   }, [loadRepositoryData]);
+
+  const handleSearch = async (query: string, limit: number) => {
+    try {
+      setSearchLoading(true);
+      setSearchQuery(query);
+      const res = await api.get(
+        `/repositories/${repositoryId}/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      );
+      setSearchResults(res.data?.data?.results || []);
+    } catch (err: any) {
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -164,7 +204,7 @@ export default function RepositoryDetailPage({
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <a
               href={repo.htmlUrl}
               target="_blank"
@@ -182,6 +222,11 @@ export default function RepositoryDetailPage({
             <GraphBuildButton
               repositoryId={repo.id}
               onBuildComplete={loadRepositoryData}
+            />
+
+            <SemanticIndexButton
+              repositoryId={repo.id}
+              onIndexingComplete={loadRepositoryData}
             />
           </div>
         </div>
@@ -228,27 +273,24 @@ export default function RepositoryDetailPage({
         </div>
       </div>
 
-      {/* Knowledge Graph Summary Badge Header */}
-      <GraphSummary summary={graphSummary} />
-
       {/* Navigation Tabs */}
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto">
         <button
-          onClick={() => setActiveTab("files")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
-            activeTab === "files"
-              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+          onClick={() => setActiveTab("search")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+            activeTab === "search"
+              ? "border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400 font-semibold"
               : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
           }`}
         >
-          File Tree ({files.length})
+          Semantic Search ({semanticStatus?.totalEmbeddings || 0} Vectors)
         </button>
 
         <button
           onClick={() => setActiveTab("graph")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
             activeTab === "graph"
-              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100 font-semibold"
               : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
           }`}
         >
@@ -256,10 +298,21 @@ export default function RepositoryDetailPage({
         </button>
 
         <button
+          onClick={() => setActiveTab("files")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+            activeTab === "files"
+              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100 font-semibold"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          }`}
+        >
+          File Tree ({files.length})
+        </button>
+
+        <button
           onClick={() => setActiveTab("syncs")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
             activeTab === "syncs"
-              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+              ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100 font-semibold"
               : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
           }`}
         >
@@ -268,14 +321,17 @@ export default function RepositoryDetailPage({
       </div>
 
       {/* Tab Contents */}
-      {activeTab === "files" && (
-        <div className="space-y-4">
-          <RepositoryTree files={files} />
+      {activeTab === "search" && (
+        <div className="space-y-6">
+          <SemanticIndexStatus statusData={semanticStatus} />
+          <SemanticSearchBar onSearch={handleSearch} loading={searchLoading} />
+          <SemanticSearchResults results={searchResults} query={searchQuery} />
         </div>
       )}
 
       {activeTab === "graph" && (
         <div className="space-y-6">
+          <GraphSummary summary={graphSummary} />
           <GraphNeighborhoodView
             repositoryId={repo.id}
             selectedNodeId={selectedNodeId}
@@ -290,6 +346,12 @@ export default function RepositoryDetailPage({
 
             <GraphEdgeList repositoryId={repo.id} />
           </div>
+        </div>
+      )}
+
+      {activeTab === "files" && (
+        <div className="space-y-4">
+          <RepositoryTree files={files} />
         </div>
       )}
 

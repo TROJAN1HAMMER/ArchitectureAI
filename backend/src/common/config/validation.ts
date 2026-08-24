@@ -19,6 +19,12 @@ export const environmentSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().optional(),
   GITHUB_CALLBACK_URL: z.string().url().optional(),
   GITHUB_OAUTH_ENCRYPTION_KEY: z.string().length(32).optional(),
+  EMBEDDING_PROVIDER: z.string().default("mock"),
+  EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
+  EMBEDDING_DIMENSIONS: z.coerce.number().default(1536),
+  EMBEDDING_MAX_FILE_SIZE: z.coerce.number().default(524288),
+  EMBEDDING_CHUNK_SIZE: z.coerce.number().default(1000),
+  EMBEDDING_CHUNK_OVERLAP: z.coerce.number().default(200),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

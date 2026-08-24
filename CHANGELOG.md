@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4-semantic-search] - 2026-08-24
+
+### Added
+
+- PostgreSQL pgvector image (`pgvector/pgvector:pg15`) in `docker-compose.yml`
+- `Embedding` and `SemanticIndex` models in Prisma schema with `(repositoryId, fileId, chunkIndex, model)` unique constraint
+- Migration `20260824145147_add_semantic_search_foundation`
+- Embedding provider abstraction (`IEmbeddingProvider`) and `MockEmbeddingProviderService` for deterministic L2-normalized vector embeddings
+- `EmbeddingService` for vector dimension validation, content hashing, and persistence
+- `SearchableContentService` for file filtering, structured input context formatting, SHA-256 hashing, and deterministic chunking
+- `SemanticIndexerService` for Redis-locked (`repository:embedding-lock:<id>`, 10-min TTL, EX NX) idempotent background indexing and stale embedding removal
+- `SemanticSearchService` for query vector generation, repository-scoped cosine similarity scoring, and file-collapsed search results ranking
+- Semantic Search REST API endpoints:
+  - `GET /api/v1/repositories/:id/search?q=...&limit=...` (semantic similarity search)
+  - `GET /api/v1/repositories/:id/semantic-index` (indexing status)
+  - `POST /api/v1/repositories/:id/semantic-index` (trigger manual semantic indexing)
+- Frontend Semantic Search components (`SemanticIndexStatus`, `SemanticIndexButton`, `SemanticSearchBar`, `SemanticSearchResults`) embedded in `/repositories/[id]` page with dark/light mode support
+- Automated semantic indexing trigger injected post-Knowledge Graph build in `RepositorySyncService`
+- Unit test suites for `EmbeddingService`, `SearchableContentService`, `SemanticIndexerService`, `SemanticSearchService`, and `SemanticSearchController`
+- Environment schema validation for `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `EMBEDDING_MAX_FILE_SIZE`, `EMBEDDING_CHUNK_SIZE`, and `EMBEDDING_CHUNK_OVERLAP`
+
+### Security
+
+- Enforced user-scoped repository ownership check across all semantic search and indexing endpoints
+- Non-owned or missing repository access returns HTTP 404/403 without leaking repository existence
+- Vector search queries are strictly isolated to user-owned repositories
+
 ## [0.1.3-knowledge-graph-foundation] - 2026-08-24
 
 ### Added
