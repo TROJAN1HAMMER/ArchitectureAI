@@ -30,6 +30,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Handle 401 Unauthorized token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (originalRequest.url === "/auth/refresh") {
         return Promise.reject(error);
@@ -72,6 +73,16 @@ api.interceptors.response.use(
         isRefreshing = false;
       }
     }
+
+    // Standardize error message attachment
+    const customMessage =
+      error.response?.data?.error?.message ||
+      error.response?.data?.message ||
+      (error.response?.status === 429
+        ? "Rate limit exceeded. Please wait a moment before trying again."
+        : error.message);
+
+    error.friendlyMessage = customMessage;
 
     return Promise.reject(error);
   },

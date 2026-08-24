@@ -6,6 +6,7 @@ import { LoggerService } from "./common/logger/logger.service.js";
 import { ConfigService } from "@nestjs/config";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import express from "express";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -17,6 +18,12 @@ async function bootstrap() {
   // Connect Winston logger wrapper
   const logger = app.get(LoggerService);
   app.useLogger(logger);
+
+  // Configure body parser payload limits
+  const maxBodySize =
+    configService.get<string>("MAX_REQUEST_BODY_SIZE") || "10mb";
+  app.use(express.json({ limit: maxBodySize }));
+  app.use(express.urlencoded({ limit: maxBodySize, extended: true }));
 
   // Register Helmet security headers with Swagger CSP compatibility
   app.use(
@@ -72,11 +79,15 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle("ArchitectAI API")
     .setDescription(
-      "AI-powered Engineering Intelligence Platform.\n\n" +
+      "AI-powered Engineering Intelligence & Architecture Platform.\n\n" +
         "### Authentication\n" +
         "This API supports two authentication mechanisms:\n" +
         "1. **Access Tokens**: Short-lived JWTs sent in the `Authorization: Bearer <token>` header.\n" +
-        "2. **Refresh Tokens**: Long-lived session tokens stored in an `HttpOnly` cookie automatically set on `/auth/login`.",
+        "2. **Refresh Tokens**: Long-lived session tokens stored in an `HttpOnly` cookie automatically set on `/auth/login`.\n\n" +
+        "### Operational Features\n" +
+        "- Global Rate Limiting & Throttling\n" +
+        "- Correlation Tracing via `X-Request-ID`\n" +
+        "- Health & Dependency Probes (`/api/v1/health/live`, `/api/v1/health/ready`) \n",
     )
     .setVersion("v1")
     .addBearerAuth(
@@ -96,7 +107,10 @@ async function bootstrap() {
   SwaggerModule.setup("api/docs", app, document);
 
   // Start app
-  const port = configService.get<number>("app.port") || 3000;
+  const port =
+    configService.get<number>("PORT") ||
+    configService.get<number>("app.port") ||
+    3001;
 
   await app.listen(port);
   logger.log(

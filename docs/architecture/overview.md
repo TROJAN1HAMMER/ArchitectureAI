@@ -7,9 +7,9 @@ This document describes the high-level architecture of the **ArchitectAI** platf
 The project is designed as a **Modular Monolith** using a monorepo structure managed by `pnpm` workspaces:
 
 - **Frontend**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, next-themes (Dark/Light), TanStack Query, Axios.
-- **Backend**: NestJS, TypeScript, Prisma ORM, PostgreSQL (`pgvector`), Redis (`ioredis`), Winston (logging), Zod validation.
+- **Backend**: NestJS, TypeScript, `@nestjs/throttler` (Rate Limiting), Prisma ORM, PostgreSQL (`pgvector`), Redis (`ioredis`), Winston (logging), Zod validation.
 - **Shared**: TypeScript package (`@architect-ai/shared`) sharing DTOs, schemas, constants, and utilities.
-- **Infrastructure**: Docker Compose, PostgreSQL (`pgvector`), Redis (caching, locks).
+- **Infrastructure**: Docker Compose, PostgreSQL (`pgvector`), Redis (caching, locks), OpenTelemetry telemetry.
 
 ## Architecture Layout
 
@@ -19,11 +19,11 @@ The project is designed as a **Modular Monolith** using a monorepo structure man
 | (App Router, ThemeToggle, TreeView, GraphUI, SearchUI, AIChat, ArchAudit, SysDesignStudio, GovernanceUI) |
 +---------------------------+----------------------------+
                             |
-                            | HTTP / REST (Axios)
+                            | HTTP / REST (Axios, 429/500 Handling, X-Request-ID)
                             v
 +---------------------------+----------------------------+      +--------------------------+
 |                  NestJS v10 Backend                    |<---->| @architect-ai/shared     |
-| (Auth, Users, Health, Repos, Graph, Search, Ai, Arch, Sys, Gov) | (Types, Schemas, Consts) |
+| (Helmet, Throttler, Filter, Telemetry, RedisLock)      |      | (Types, Schemas, Consts) |
 +-----+---------------------+----------------------+-----+      +--------------------------+
       |                     |                      |
       | Prisma ORM          | Redis Lock (EX 600)  | Octokit GitHub REST
@@ -34,67 +34,33 @@ The project is designed as a **Modular Monolith** using a monorepo structure man
 +-----------+         +-----------+          +-----------+
 ```
 
-## Repository Intelligence, Knowledge Graph, Auditing, RAG, C4 Diagrams & Governance Flow
+## Repository Intelligence, Knowledge Graph, Auditing, RAG, C4 Diagrams, Governance & Hardening Flow
 
 ```text
-GitHub REST API (Git Trees API)
+HTTP Request (X-Request-ID Header)
    ↓
-GitHubClientService (getRepositoryTree, getRepository)
+Helmet Security Headers & CORS Check
    ↓
-RepositorySyncService
-   ├── 1. Verify user connection & ownership (RepositoryConnection)
-   ├── 2. Acquire Redis Lock (key: repository:sync-lock:<id>, 600s TTL, NX)
-   ├── 3. Create RepositorySync record (status: RUNNING)
-   ├── 4. Update Repository metadata (language, stars, forks, isArchived)
-   ├── 5. Bulk Upsert RepositoryFile tree (chunked transaction, unique(repositoryId, path))
-   ├── 6. Build Knowledge Graph (RepositoryGraphBuilderService)
-   │      ├── REPOSITORY → DIRECTORY → FILE hierarchy (CONTAINS)
-   │      └── Lightweight import extraction (IMPORTS, DEPENDS_ON)
-   ├── 7. Build Semantic Search Index (SemanticIndexerService)
-   │      ├── Searchable content extraction & context formatting
-   │      ├── SHA-256 content hashing & idempotency check
-   │      └── Vector embedding generation & persistence
-   ├── 8. Run Architecture Analysis (ArchitectureAnalysisService)
-   │      ├── Component Discovery (ArchitectureDiscoveryService)
-   │      ├── Structural Audit (ArchitectureAuditorService: Cycles, Coupling, Boundaries)
-   │      ├── Pattern Detection (ArchitecturePatternService)
-   │      ├── Deterministic Risk Scoring (ArchitectureRiskService 0-100)
-   │      └── Persist ArchitectureAnalysis & ArchitectureFinding records
-   ├── 9. Generate System Design (SystemDesignService)
-   │      ├── C4 System Element Discovery (SystemDesignDiscoveryService)
-   │      ├── C4 Diagram Generation (DiagramGenerationService)
-   │      ├── Deterministic Node Layout (DiagramLayoutService)
-   │      └── Persist SystemDesign, Diagram, DiagramNode, and DiagramEdge records
-   ├── 10. Execute Governance Review (GovernanceReviewService)
-   │      ├── Capture Architecture Snapshot (ArchitectureSnapshotService)
-   │      ├── Compare Current vs Previous Snapshot (ArchitectureDiffService)
-   │      ├── Evaluate Governance Rules (GovernanceEngineService)
-   │      └── Persist ArchitectureSnapshot, ArchitectureDiff, and GovernanceViolation records
-   ├── 11. Update RepositorySync record (status: SUCCESS)
-   └── 12. Release Redis Lock safely (matching UUID)
+ThrottlerGuard (Rate Limiting check -> returns HTTP 429 if limit exceeded)
    ↓
-PostgreSQL (Repository, RepositoryFile, GraphNode, GraphEdge, Embedding, ArchitectureAnalysis, ArchitectureFinding, SystemDesign, Diagram, ArchitectureSnapshot, ArchitectureDiff, GovernanceViolation, Conversation)
+JwtAuthGuard (Authentication check)
    ↓
-Grounded RAG Pipeline (RagService)
-   ├── 1. Verify Repository Ownership (RepositoryConnection)
-   ├── 2. Acquire Redis Lock (key: repository:ai-lock:<repo>:<user>, 60s TTL, NX)
-   ├── 3. Parse User Query Intent (QueryUnderstandingService)
-   ├── 4. Retrieve Vector + Graph Context (ContextRetrieverService)
-   ├── 5. Retrieve Architecture, System Design, & Governance Context (ArchitectureContextService, SystemDesignContextService, GovernanceContextService)
-   ├── 6. Weight & Rank Signals (ContextRankerService: Semantic 60%, Graph 25%, Lexical 15%)
-   ├── 7. Format Bounded Context & System Prompt (ContextBuilderService: MAX_CONTEXT_CHARS)
-   ├── 8. Execute LLM Provider (LLMProviderFactory / MockLLMProviderService)
-   ├── 9. Persist Conversation & ConversationMessage History (ConversationService)
-   └── 10. Release Redis Lock safely
+Repository Connection Ownership Verification (Multi-tenant IDOR check -> returns 404/403 if not owned)
    ↓
-REST APIs (POST /repositories/:id/governance/review, PATCH /violations/:id, GET /governance)
+RedisLockService (Safe token-matched lock check EX 600 NX -> returns 409 if locked)
    ↓
-Next.js Governance Dashboard Tab (/repositories/[id])
+TelemetryService (Span Traces: repository.sync, graph.build, semantic.index, ai.rag, architecture.analyze, system_design.generate, governance.review)
+   ↓
+Service Workflows (RepositorySync, KnowledgeGraph, SemanticIndex, RAG, ArchitectureAnalysis, SystemDesign, GovernanceReview)
+   ↓
+AllExceptionsFilter & LoggerService (Standard Error Envelope formatting with top-level requestId & credential masking)
+   ↓
+HTTP Response (X-Request-ID Header + JSON Envelope)
 ```
 
 ## Folder Structure
 
 - `frontend/`: React components, views, layout, client-side hooks, AI chat, Architecture Audit, System Design Studio, and Governance Dashboard UI.
-- `backend/`: Core business logic services, controllers, AI/RAG services, architecture engine, system design engine, governance engine, middlewares, filters, and interceptors.
+- `backend/`: Core business logic services, controllers, platform security, rate limiting, exception filters, AI/RAG services, architecture engine, system design engine, governance engine, telemetry, and health probes.
 - `packages/shared/`: Cross-boundary validation schemas, TypeScript interfaces, and shared constants.
 - `docs/`: ADR logs, architecture design docs, release notes, and phase walkthroughs.

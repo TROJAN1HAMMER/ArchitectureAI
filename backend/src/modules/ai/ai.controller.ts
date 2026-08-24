@@ -13,6 +13,7 @@ import { CurrentUser } from "../auth/decorators/current-user.decorator.js";
 import { RagService } from "./rag/rag.service.js";
 import { ConversationService } from "./conversation/conversation.service.js";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 
 export class AIChatDto {
   message!: string;
@@ -29,6 +30,7 @@ export class AiController {
     private readonly conversationService: ConversationService,
   ) {}
 
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   @Post("chat")
   @ApiOperation({
     summary: "Send a natural language query to the AI repository assistant",

@@ -12,6 +12,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard.js";
 import { CurrentUser } from "../auth/decorators/current-user.decorator.js";
 import { SystemDesignService } from "./system-design.service.js";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 
 export class UpdateNodePositionDto {
   x!: number;
@@ -34,6 +35,7 @@ export class SystemDesignController {
     return this.systemDesignService.getLatestSystemDesign(userId, repositoryId);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post("generate")
   @ApiOperation({ summary: "Generate or regenerate C4 system design diagrams" })
   async generate(

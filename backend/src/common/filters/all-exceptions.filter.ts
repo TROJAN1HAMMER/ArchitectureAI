@@ -78,6 +78,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           break;
         case HttpStatus.TOO_MANY_REQUESTS:
           errorCode = ErrorCode.RATE_LIMIT_EXCEEDED;
+          errorMessage = "Rate limit exceeded. Please try again later.";
           break;
         default:
           errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
@@ -86,7 +87,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       errorMessage = isProduction ? "Internal server error" : exception.message;
     }
 
-    const requestId = RequestContextService.getRequestId();
+    const requestId = RequestContextService.getRequestId() || "unknown";
 
     const responseBody = {
       success: false,
@@ -95,13 +96,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message: errorMessage,
         details: errorDetails,
       },
+      requestId,
       meta: {
-        requestId: requestId || "unknown",
+        requestId,
       },
     };
 
     this.logger.error(
-      `Http Status: ${httpStatus} Error: ${errorMessage} Details: ${JSON.stringify(errorDetails)}`,
+      `Http Status: ${httpStatus} ErrorCode: ${errorCode} ErrorMessage: ${errorMessage} RequestId: ${requestId}`,
       exception instanceof Error ? exception.stack : undefined,
       "AllExceptionsFilter",
     );

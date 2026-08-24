@@ -8,7 +8,7 @@
 [![Docker](https://img.shields.io/badge/Docker-compose-blue.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-ArchitectAI is an AI-powered Engineering Intelligence & System Design Platform. It digests git repositories, database schemas, and service interaction flows to construct comprehensive architecture insights, system design diagrams, and automated design audits.
+ArchitectAI is an AI-powered Engineering Intelligence & System Design Platform. It digests git repositories, database schemas, and service interaction flows to construct comprehensive architecture insights, system design diagrams, automated design audits, and governance policy reviews.
 
 ---
 
@@ -22,49 +22,52 @@ ArchitectAI aims to bridge the gap between abstract software architecture and ac
 4. **Automated Architecture Auditing**: Deterministic cycle detection, coupling metrics, boundary violation checks, pattern detection, and structural risk scoring.
 5. **Interactive System Design Studio**: Automated generation of C4 System Context, Container, and Component diagrams with interactive canvas editing and SVG/JSON export.
 6. **Architecture Review & Governance Workflows**: Automated snapshot comparisons over releases, component & dependency diffs, risk score deltas, governance policy enforcement, and review status evaluation (`PASS`, `PASS_WITH_WARNINGS`, `FAILED`).
+7. **Production Hardening & Deployment Readiness**: API rate limiting, multi-tenant IDOR protection, request correlation tracing, credential sanitization, OpenTelemetry observability, health probes, and Docker production manifests.
 
 ---
 
 ## Current Status
 
-**Active Version**: `v0.1.8-architecture-governance`  
-The project has completed **Phases 1 through 10**. The system features a production-ready authentication foundation, platform infrastructure, GitHub OAuth integration, Redis concurrency locking, full repository metadata and file tree ingestion, PostgreSQL knowledge graph persistence, a complete **Semantic Search Foundation**, an **AI Repository Understanding / RAG Foundation**, an **Architecture Discovery & Auditing Layer**, an **Interactive System Design Studio**, and **Architecture Review & Governance Workflows**:
+**Active Version**: `v0.1.9-production-hardening`  
+The project has completed **Phases 1 through 11**. The system features a production-ready platform foundation:
 
 - **Authentication Foundation**: OWASP-aligned `argon2id` passwords, short-lived (15-min) in-memory JWTs, 7-day rotated `HttpOnly` refresh cookies, and session-level database auditing.
-- **Central Redis Cache & Coordination**: Global Redis connections via `ioredis` with exponential backoff retries, clean shutdowns, sync locks (`repository:sync-lock:<id>`), graph construction locks (`repository:graph-lock:<id>`), semantic indexing locks (`repository:embedding-lock:<id>`), AI request locks (`repository:ai-lock:<id>:<user>`), architecture analysis locks (`repository:architecture-lock:<id>`), system design locks (`system-design:generate-lock:<id>`), and governance review locks (`repository:governance-lock:<id>`).
-- **Request Correlation**: Correlation IDs (`X-Request-ID`) mapped via `AsyncLocalStorage` and automatically printed in logs.
-- **Structured Logging**: Logging interceptors capturing HTTP method, path, response codes, and durations.
-- **Security Hardening**: Secure headers (Helmet) and strict comma-separated origins CORS checking.
-- **Health Checks**: Liveness and readiness endpoints checking Prisma DB and Redis cache availability status.
+- **Central Redis Cache & Coordination**: Global Redis connections via `ioredis` with exponential backoff retries, clean shutdowns, and reusable Redis locks (`RedisLockService`).
+- **Production API Throttling**: Rate limiting via `@nestjs/throttler` (`RATE_LIMIT_TTL`, `RATE_LIMIT_LIMIT`) protecting endpoints against abuse and returning HTTP 429 (`RATE_LIMIT_EXCEEDED`).
+- **Request Correlation**: Correlation IDs (`X-Request-ID`) mapped via `AsyncLocalStorage`, included in response headers, structured logs, and error envelopes.
+- **Structured Logging & Sanitization**: Winston logger wrapper with automatic redaction of JWTs, passwords, secrets, and bearer tokens.
+- **Security Hardening**: Secure headers (Helmet), payload body size limits (`MAX_REQUEST_BODY_SIZE`), and strict CORS origin validation.
+- **Health Checks & Readiness**: Liveness (`/health/live`) and readiness (`/health/ready`) endpoints verifying PostgreSQL, Redis, and `pgvector` extension availability status.
 - **GitHub Integration (Phase 3)**: GitHub OAuth service, repository module scaffolding, AES-256 encrypted token storage, and linked repository management.
 - **Repository Intelligence Foundation (Phase 4)**: Normalized file tree ingestion (`RepositoryFile`), idempotent upserts, sync lifecycle tracking (`PENDING`/`RUNNING`/`SUCCESS`/`FAILED`), and REST endpoints for repository details, sync history, and tree navigation.
 - **Knowledge Graph Foundation (Phase 5)**: PostgreSQL-backed graph models (`GraphNode` and `GraphEdge`), `NodeType` and `EdgeType` enums, deterministic hierarchy creation, lightweight import/dependency extraction, graph neighborhood traversal API, and interactive UI graph inspector.
 - **Semantic Search Foundation (Phase 6)**: PostgreSQL pgvector storage, `Embedding` and `SemanticIndex` models, provider abstraction (`IEmbeddingProvider`), SHA-256 content hashing, idempotent indexing, file chunking, authenticated semantic search APIs, and frontend search interface.
-- **AI Repository Understanding / RAG Foundation (Phase 7)**: Bounded RAG pipeline (`QueryUnderstandingService`, `ContextRetrieverService`, `ContextRankerService`, `ContextBuilderService`, `RagService`), LLM provider abstraction (`ILLMProvider`, default offline `MockLLMProviderService`), prompt injection isolation, grounded source citations, persistent `Conversation` / `ConversationMessage` tracking, and interactive AI chat UI tab.
-- **Architecture Discovery & Auditing (Phase 8)**: `ArchitectureAnalysis` and `ArchitectureFinding` models, `ArchitectureDiscoveryService`, cycle detection (`CIRCULAR_DEPENDENCY`), coupling metrics (`HIGH_COUPLING`, `DEPENDENCY_HOTSPOT`), boundary violation checks (`BOUNDARY_VIOLATION`), pattern detection (`PATTERN_DETECTED`), deterministic risk scoring (0–100), RAG architecture context enrichment, and interactive Architecture Audit frontend tab.
-- **System Design Studio & Interactive Diagramming (Phase 9)**: `SystemDesign`, `Diagram`, `DiagramNode`, and `DiagramEdge` models, C4 System Context, Container, and Component diagram generation (`DiagramGenerationService`), deterministic layout positioning (`DiagramLayoutService`), grounded RAG context injection (`SystemDesignContextService`), and interactive System Design Studio UI tab with SVG/JSON export.
-- **Architecture Review & Governance Workflows (Phase 10)**: `ArchitectureSnapshot`, `ArchitectureSnapshotNode`, `ArchitectureSnapshotEdge`, `ArchitectureDiff`, `ArchitectureDiffItem`, `GovernanceRule`, and `GovernanceViolation` models, snapshot capturing (`ArchitectureSnapshotService`), diff engine (`ArchitectureDiffService`), rule evaluation (`GovernanceEngineService`), review status calculation (`GovernanceReviewService`), RAG governance context enrichment (`GovernanceContextService`), and interactive Governance dashboard frontend tab.
-- **Dark / Light Theme**: Full site-wide theme toggling via `next-themes` with smooth animated transitions across all pages and components.
+- **AI Repository Understanding / RAG Foundation (Phase 7)**: Bounded RAG pipeline, prompt injection isolation, grounded source citations, persistent `Conversation` / `ConversationMessage` tracking, and interactive AI chat UI tab.
+- **Architecture Discovery & Auditing (Phase 8)**: `ArchitectureAnalysis` and `ArchitectureFinding` models, cycle detection (`CIRCULAR_DEPENDENCY`), coupling metrics, boundary violation checks, pattern detection, deterministic risk scoring (0–100), and interactive Architecture Audit frontend tab.
+- **System Design Studio & Interactive Diagramming (Phase 9)**: `SystemDesign`, `Diagram`, `DiagramNode`, and `DiagramEdge` models, C4 diagram generation, deterministic layout positioning, and interactive System Design Studio UI tab with SVG/JSON export.
+- **Architecture Review & Governance Workflows (Phase 10)**: `ArchitectureSnapshot`, `ArchitectureDiff`, `GovernanceRule`, and `GovernanceViolation` models, snapshot diffing, rule evaluation, review status evaluation, and interactive Governance dashboard frontend tab.
+- **OpenTelemetry Observability (Phase 11)**: `TelemetryService` instrumenting spans (`repository.sync`, `graph.build`, `semantic.index`, `semantic.search`, `ai.rag`, `architecture.analyze`, `system_design.generate`, `governance.review`) without exposing source code contents.
+- **Production Docker Setup**: `docker-compose.prod.yml` with healthchecks, persistent volumes, restart policies, and graceful shutdown hooks.
 
 ---
 
 ## Architecture Overview
 
-ArchitectAI adopts a **Modular Monolith** pattern inside a monorepo workspace. High-level interactions are diagrammed below:
+ArchitectAI adopts a **Modular Monolith** pattern inside a monorepo workspace:
 
 ```mermaid
 graph TD
     subgraph Frontend ["Next.js App Router"]
         UI["React 19 Pages"]
-        Axios["Axios client"]
+        Axios["Axios client (429/500 Handling)"]
         Theme["next-themes (Dark/Light)"]
         TreeUI["RepositoryTree Component"]
         GraphUI["Knowledge Graph Inspector"]
         SearchUI["Semantic Search Bar & Results"]
         AIChatUI["AI Assistant Chat & Sources"]
-        ArchUI["Architecture Audit & Findings UI"]
-        SysDesignUI["System Design Studio & C4 Canvas"]
-        GovUI["Governance Review Dashboard & Rules"]
+        ArchUI["Architecture Audit UI"]
+        SysDesignUI["System Design Studio UI"]
+        GovUI["Governance Review Dashboard"]
 
         UI --> Axios
         UI --> Theme
@@ -79,35 +82,19 @@ graph TD
 
     subgraph Backend ["NestJS v10 API"]
         App["App Module"]
-        Health["Health Module"]
-        Auth["Auth Module"]
-        Users["Users Module"]
-        Repo["Repository Module"]
-        GraphModule["KnowledgeGraphModule"]
-        SemanticSearchModule["SemanticSearchModule"]
-        AiModule["AiModule"]
-        ArchModule["ArchitectureModule"]
-        SysDesignModule["SystemDesignModule"]
-        GovModule["GovernanceModule"]
-        GovReviewService["GovernanceReviewService"]
-        PrismaService["Prisma Client Service"]
-        LoggerService["Winston Logger Wrapper"]
+        Helmet["Helmet / Security Headers"]
+        Throttler["ThrottlerGuard (Rate Limit 429)"]
+        ExceptionFilter["AllExceptionsFilter (Standard Envelope + X-Request-ID)"]
+        Health["Health Module (/health/live, /health/ready)"]
+        Telemetry["TelemetryService (OpenTelemetry Spans)"]
+        RedisLock["RedisLockService"]
 
+        App --> Helmet
+        App --> Throttler
+        App --> ExceptionFilter
         App --> Health
-        App --> Auth
-        App --> Users
-        App --> Repo
-        App --> GraphModule
-        App --> SemanticSearchModule
-        App --> AiModule
-        App --> ArchModule
-        App --> SysDesignModule
-        App --> GovModule
-        App --> PrismaService
-        App --> LoggerService
-
-        GovModule --> GovReviewService
-        AiModule --> GovModule
+        App --> Telemetry
+        App --> RedisLock
     end
 
     subgraph Persistence ["Infra Containers"]
@@ -115,9 +102,7 @@ graph TD
         Redis[("Redis (Sync, Graph, Embedding, AI, Architecture, System Design, Governance Locks EX 600 NX)")]
     end
 
-    Axios -->|REST API HTTP| App
-    PrismaService -->|ORM SQL| Postgres
-    GovReviewService -->|Lock/Unlock| Redis
+    Axios -->|REST API HTTP (X-Request-ID)| App
 ```
 
 ---
@@ -131,15 +116,16 @@ graph TD
 - **Tailwind CSS** (Utility styling, `darkMode: 'class'`)
 - **next-themes** (Dark / Light mode with system preference support)
 - **TanStack Query** (Client-side state & caching)
-- **Axios** (API requests)
+- **Axios** (API requests with 429/500 handling)
 - **lucide-react** (Icon library)
 
 ### Backend
 
 - **NestJS v10** (Module architecture, DI container)
+- **@nestjs/throttler** (API Rate Limiting)
 - **Prisma ORM** (Type-safe schemas & migrations)
-- **PostgreSQL / pgvector** (Core relational, graph, vector, architecture, system design, governance, and conversation database)
-- **Winston** (Structured logging custom wrapper)
+- **PostgreSQL / pgvector** (Core database)
+- **Winston** (Structured logging with credential sanitization)
 - **Zod** (Bootstrap environments validation)
 - **Swagger** (Interactive API documentation)
 
@@ -156,6 +142,7 @@ graph TD
 - [ADR-008: Architecture Discovery & Auditing Foundation](docs/adr/ADR-008-architecture-discovery-auditing.md)
 - [ADR-009: System Design Studio & Interactive Diagramming](docs/adr/ADR-009-system-design-studio.md)
 - [ADR-010: Architecture Review & Governance Workflows](docs/adr/ADR-010-architecture-governance.md)
+- [ADR-011: Production Hardening & Multi-Tenant Deployment Readiness](docs/adr/ADR-011-production-hardening.md)
 
 ---
 
@@ -172,7 +159,7 @@ graph TD
 - [x] **Phase 8** — Architecture Discovery & Auditing
 - [x] **Phase 9** — System Design Studio & Interactive Diagramming
 - [x] **Phase 10** — Architecture Review & Governance Workflows
-- [ ] **Phase 11** — Production Hardening & Multi-Tenant Deployment Readiness
+- [x] **Phase 11** — Production Hardening & Multi-Tenant Deployment Readiness
 
 ---
 

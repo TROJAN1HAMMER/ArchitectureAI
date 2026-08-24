@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: architectai-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-architect_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-architect_password}
+      POSTGRES_DB: ${POSTGRES_DB:-architectai_db}
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-architect_user} -d ${POSTGRES_DB:-architectai_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    networks:
+      - architectai-network-prod
+
+  redis:
+    image: redis:7-alpine
+    container_name: architectai-redis-prod
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redis_data_prod:/data
+    networks:
+      - architectai-network-prod
+
+volumes:
+  postgres_data_prod:
+  redis_data_prod:
+
+networks:
+  architectai-network-prod:
+    driver: bridge

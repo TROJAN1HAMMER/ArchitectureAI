@@ -20,6 +20,7 @@ import {
   GovernanceRuleSeverity,
   GovernanceViolationStatus,
 } from "@prisma/client";
+import { Throttle } from "@nestjs/throttler";
 
 @ApiTags("Architecture Governance")
 @ApiBearerAuth()
@@ -42,6 +43,7 @@ export class GovernanceController {
     return this.reviewService.getGovernanceSummary(userId, repositoryId);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post("review")
   @ApiOperation({ summary: "Run automated architecture governance review" })
   async runReview(

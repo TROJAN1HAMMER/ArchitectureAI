@@ -22,12 +22,26 @@ export class HealthService {
   async getReadiness() {
     let databaseStatus = "fail";
     let redisStatus = "fail";
+    let pgvectorStatus = "fail";
     let overallHealthy = true;
 
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       databaseStatus = "ok";
-    } catch (err) {
+    } catch {
+      overallHealthy = false;
+    }
+
+    try {
+      const vectorExt = await this.prisma.$queryRaw<Array<{ extname: string }>>`
+        SELECT extname FROM pg_extension WHERE extname = 'vector'
+      `;
+      if (vectorExt && vectorExt.length > 0) {
+        pgvectorStatus = "ok";
+      } else {
+        overallHealthy = false;
+      }
+    } catch {
       overallHealthy = false;
     }
 
@@ -38,15 +52,21 @@ export class HealthService {
       } else {
         overallHealthy = false;
       }
-    } catch (err) {
+    } catch {
       overallHealthy = false;
     }
 
     const response = {
       status: overallHealthy ? "ok" : "error",
+      services: {
+        postgres: databaseStatus === "ok" ? "up" : "down",
+        redis: redisStatus === "ok" ? "up" : "down",
+        pgvector: pgvectorStatus === "ok" ? "up" : "down",
+      },
       checks: {
         database: databaseStatus,
         redis: redisStatus,
+        pgvector: pgvectorStatus,
       },
       timestamp: new Date().toISOString(),
     };

@@ -3,6 +3,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard.js";
 import { CurrentUser } from "../auth/decorators/current-user.decorator.js";
 import { ArchitectureAnalysisService } from "./architecture-analysis.service.js";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 
 @ApiTags("Architecture Intelligence")
 @ApiBearerAuth()
@@ -20,6 +21,7 @@ export class ArchitectureController {
     return this.analysisService.getLatestSummary(userId, repositoryId);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post("analyze")
   @ApiOperation({
     summary: "Trigger background architecture discovery and auditing analysis",
@@ -41,11 +43,19 @@ export class ArchitectureController {
     @Query("limit") limit?: string,
     @Query("offset") offset?: string,
   ) {
+    const rawLimit = limit ? parseInt(limit, 10) : 50;
+    const rawOffset = offset ? parseInt(offset, 10) : 0;
+    const limitNum = Math.min(
+      Math.max(isNaN(rawLimit) ? 50 : rawLimit, 1),
+      100,
+    );
+    const offsetNum = Math.max(isNaN(rawOffset) ? 0 : rawOffset, 0);
+
     return this.analysisService.getFindings(userId, repositoryId, {
       type,
       severity,
-      limit: limit ? parseInt(limit, 10) : 50,
-      offset: offset ? parseInt(offset, 10) : 0,
+      limit: limitNum,
+      offset: offsetNum,
     });
   }
 

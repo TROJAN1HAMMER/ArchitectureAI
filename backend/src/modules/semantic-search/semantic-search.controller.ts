@@ -14,6 +14,7 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { SemanticSearchService } from "./semantic-search.service.js";
 import { SemanticIndexerService } from "./semantic-indexer.service.js";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard.js";
@@ -55,7 +56,8 @@ export class SemanticSearchController {
     if (!q || !q.trim()) {
       throw new BadRequestException("Query parameter 'q' is required");
     }
-    const limitNum = limit ? parseInt(limit, 10) : 10;
+    const rawLimit = limit ? parseInt(limit, 10) : 10;
+    const limitNum = Math.min(Math.max(isNaN(rawLimit) ? 10 : rawLimit, 1), 50);
     return this.semanticSearchService.searchRepository(
       userId,
       repositoryId,
@@ -74,6 +76,7 @@ export class SemanticSearchController {
     return this.semanticIndexerService.getIndexingStatus(userId, repositoryId);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post("semantic-index")
   @ApiOperation({ summary: "Trigger semantic indexing for repository" })
   @ApiResponse({ status: 200, description: "Semantic indexing triggered" })
