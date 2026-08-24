@@ -20,7 +20,7 @@ import { TopologyAnalysisService } from "./topology-analysis.service.js";
 import { RepositoryDependencyService } from "./repository-dependency.service.js";
 import { PrismaService } from "../../prisma/prisma.service.js";
 
-@Controller("api/v1/systems")
+@Controller("systems")
 @UseGuards(JwtAuthGuard)
 export class EnterpriseTopologyController {
   constructor(
