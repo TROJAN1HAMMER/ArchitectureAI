@@ -18,18 +18,18 @@ ArchitectAI aims to bridge the gap between abstract software architecture and ac
 
 1. **Automated Discovery**: Up-to-date visualization of system topologies, components, and service networks.
 2. **Semantic Search & Intelligence**: Vector similarity search over codebases with contextual snippet chunking and ownership security.
-3. **Grounded AI Repository Assistant**: Natural-language repository Q&A powered by RAG context combining vector search and knowledge graph relationships.
-4. **Quality Auditing**: AI-powered analysis of design patterns, modular boundaries, and architectural drift.
+3. **Grounded AI Repository Assistant**: Natural-language repository Q&A powered by RAG context combining vector search, knowledge graph relationships, and architecture findings.
+4. **Automated Architecture Auditing**: Deterministic cycle detection, coupling metrics, boundary violation checks, pattern detection, and structural risk scoring.
 
 ---
 
 ## Current Status
 
-**Active Version**: `v0.1.5-ai-rag-foundation`  
-The project has completed **Phases 1 through 7**. The system features a production-ready authentication foundation, platform infrastructure, GitHub OAuth integration, Redis concurrency locking, full repository metadata and file tree ingestion, PostgreSQL knowledge graph persistence, a complete **Semantic Search Foundation**, and an offline **AI Repository Understanding / RAG Foundation**:
+**Active Version**: `v0.1.6-architecture-discovery`  
+The project has completed **Phases 1 through 8**. The system features a production-ready authentication foundation, platform infrastructure, GitHub OAuth integration, Redis concurrency locking, full repository metadata and file tree ingestion, PostgreSQL knowledge graph persistence, a complete **Semantic Search Foundation**, an **AI Repository Understanding / RAG Foundation**, and an **Architecture Discovery & Auditing Layer**:
 
 - **Authentication Foundation**: OWASP-aligned `argon2id` passwords, short-lived (15-min) in-memory JWTs, 7-day rotated `HttpOnly` refresh cookies, and session-level database auditing.
-- **Central Redis Cache & Coordination**: Global Redis connections via `ioredis` with exponential backoff retries, clean shutdowns, sync locks (`repository:sync-lock:<id>`), graph construction locks (`repository:graph-lock:<id>`), semantic indexing locks (`repository:embedding-lock:<id>`), and AI request locks (`repository:ai-lock:<id>:<user>`).
+- **Central Redis Cache & Coordination**: Global Redis connections via `ioredis` with exponential backoff retries, clean shutdowns, sync locks (`repository:sync-lock:<id>`), graph construction locks (`repository:graph-lock:<id>`), semantic indexing locks (`repository:embedding-lock:<id>`), AI request locks (`repository:ai-lock:<id>:<user>`), and architecture analysis locks (`repository:architecture-lock:<id>`).
 - **Request Correlation**: Correlation IDs (`X-Request-ID`) mapped via `AsyncLocalStorage` and automatically printed in logs.
 - **Structured Logging**: Logging interceptors capturing HTTP method, path, response codes, and durations.
 - **Security Hardening**: Secure headers (Helmet) and strict comma-separated origins CORS checking.
@@ -39,13 +39,14 @@ The project has completed **Phases 1 through 7**. The system features a producti
 - **Knowledge Graph Foundation (Phase 5)**: PostgreSQL-backed graph models (`GraphNode` and `GraphEdge`), `NodeType` and `EdgeType` enums, deterministic hierarchy creation, lightweight import/dependency extraction, graph neighborhood traversal API, and interactive UI graph inspector.
 - **Semantic Search Foundation (Phase 6)**: PostgreSQL pgvector storage, `Embedding` and `SemanticIndex` models, provider abstraction (`IEmbeddingProvider`), SHA-256 content hashing, idempotent indexing, file chunking, authenticated semantic search APIs, and frontend search interface.
 - **AI Repository Understanding / RAG Foundation (Phase 7)**: Bounded RAG pipeline (`QueryUnderstandingService`, `ContextRetrieverService`, `ContextRankerService`, `ContextBuilderService`, `RagService`), LLM provider abstraction (`ILLMProvider`, default offline `MockLLMProviderService`), prompt injection isolation, grounded source citations, persistent `Conversation` / `ConversationMessage` tracking, and interactive AI chat UI tab.
+- **Architecture Discovery & Auditing (Phase 8)**: `ArchitectureAnalysis` and `ArchitectureFinding` models, `ArchitectureDiscoveryService`, cycle detection (`CIRCULAR_DEPENDENCY`), coupling metrics (`HIGH_COUPLING`, `DEPENDENCY_HOTSPOT`), boundary violation checks (`BOUNDARY_VIOLATION`), pattern detection (`PATTERN_DETECTED`), deterministic risk scoring (0–100), RAG architecture context enrichment, and interactive Architecture Audit frontend tab.
 - **Dark / Light Theme**: Full site-wide theme toggling via `next-themes` with smooth animated transitions across all pages and components.
 
 ---
 
 ## Architecture Overview
 
-ArchitectAI adopts a **Modular Monolith** pattern inside a monorepo workspace. The backend isolates concerns through domain modules while maintaining direct compiler references. High-level interactions are diagrammed below:
+ArchitectAI adopts a **Modular Monolith** pattern inside a monorepo workspace. High-level interactions are diagrammed below:
 
 ```mermaid
 graph TD
@@ -57,6 +58,7 @@ graph TD
         GraphUI["Knowledge Graph Inspector"]
         SearchUI["Semantic Search Bar & Results"]
         AIChatUI["AI Assistant Chat & Sources"]
+        ArchUI["Architecture Audit & Findings UI"]
 
         UI --> Axios
         UI --> Theme
@@ -64,10 +66,7 @@ graph TD
         UI --> GraphUI
         UI --> SearchUI
         UI --> AIChatUI
-    end
-
-    subgraph Shared ["Domain Common"]
-        SharedLib["@architect-ai/shared"]
+        UI --> ArchUI
     end
 
     subgraph Backend ["NestJS v10 API"]
@@ -76,13 +75,11 @@ graph TD
         Auth["Auth Module"]
         Users["Users Module"]
         Repo["Repository Module"]
-        RepoSync["RepositorySyncService"]
         GraphModule["KnowledgeGraphModule"]
         SemanticSearchModule["SemanticSearchModule"]
         AiModule["AiModule"]
-        RagService["RagService"]
-        LLMFactory["LLMProviderFactory"]
-        GitHub["GitHub Module"]
+        ArchModule["ArchitectureModule"]
+        ArchAnalysis["ArchitectureAnalysisService"]
         PrismaService["Prisma Client Service"]
         LoggerService["Winston Logger Wrapper"]
 
@@ -93,28 +90,22 @@ graph TD
         App --> GraphModule
         App --> SemanticSearchModule
         App --> AiModule
-        App --> GitHub
+        App --> ArchModule
         App --> PrismaService
         App --> LoggerService
 
-        AiModule --> RagService
-        RagService --> LLMFactory
-        RagService --> SemanticSearchModule
-        RagService --> GraphModule
+        ArchModule --> ArchAnalysis
+        AiModule --> ArchModule
     end
 
     subgraph Persistence ["Infra Containers"]
-        Postgres[("PostgreSQL / pgvector (GraphNode, GraphEdge, Embedding, Conversation)")]
-        Redis[("Redis (Sync, Graph, Embedding, AI Locks EX 60/600 NX)")]
+        Postgres[("PostgreSQL / pgvector (GraphNode, GraphEdge, Embedding, ArchitectureAnalysis, ArchitectureFinding)")]
+        Redis[("Redis (Sync, Graph, Embedding, AI, Architecture Locks EX 600 NX)")]
     end
 
     Axios -->|REST API HTTP| App
     PrismaService -->|ORM SQL| Postgres
-    RepoSync -->|Lock/Unlock| Redis
-    RagService -->|Lock/Unlock| Redis
-
-    UI -..->|Imports| SharedLib
-    App -..->|Imports| SharedLib
+    ArchAnalysis -->|Lock/Unlock| Redis
 ```
 
 ---
@@ -135,35 +126,10 @@ graph TD
 
 - **NestJS v10** (Module architecture, DI container)
 - **Prisma ORM** (Type-safe schemas & migrations)
-- **PostgreSQL / pgvector** (Core relational, graph, vector, and conversation database)
+- **PostgreSQL / pgvector** (Core relational, graph, vector, architecture, and conversation database)
 - **Winston** (Structured logging custom wrapper)
 - **Zod** (Bootstrap environments validation)
 - **Swagger** (Interactive API documentation)
-
-### Shared Package
-
-- **Shared Workspace Package** (`@architect-ai/shared`): Shares DTO types, schemas, constants, and utilities between packages.
-
----
-
-## Configuration Variables
-
-### AI & RAG Settings
-
-| Variable            | Default      | Description                                                |
-| :------------------ | :----------- | :--------------------------------------------------------- |
-| `LLM_PROVIDER`      | `mock`       | Active LLM provider selection (`mock`, `openai`, `ollama`) |
-| `LLM_MODEL`         | `mock-model` | Active LLM model identifier                                |
-| `MAX_CONTEXT_CHARS` | `8000`       | Hard budget character limit for retrieved LLM context      |
-
----
-
-## API Documentation
-
-The backend incorporates Swagger documentation automatically. Access interactive docs at:
-
-- **Swagger UI**: [http://localhost:3001/api/docs](http://localhost:3001/api/docs)
-- **REST Prefix**: `/api/v1`
 
 ---
 
@@ -175,6 +141,7 @@ The backend incorporates Swagger documentation automatically. Access interactive
 - [ADR-005: Knowledge Graph Foundation](docs/adr/ADR-005-knowledge-graph-foundation.md)
 - [ADR-006: Semantic Search Foundation](docs/adr/ADR-006-semantic-search-foundation.md)
 - [ADR-007: AI Repository Understanding / RAG Foundation](docs/adr/ADR-007-ai-rag-foundation.md)
+- [ADR-008: Architecture Discovery & Auditing Foundation](docs/adr/ADR-008-architecture-discovery-auditing.md)
 
 ---
 
@@ -188,7 +155,7 @@ The backend incorporates Swagger documentation automatically. Access interactive
 - [x] **Phase 5** — Knowledge Graph Foundation
 - [x] **Phase 6** — Embedding & Semantic Search
 - [x] **Phase 7** — AI Repository Chat / RAG Foundation
-- [ ] **Phase 8** — Architecture Discovery
+- [x] **Phase 8** — Architecture Discovery & Auditing
 - [ ] **Phase 9** — System Design Studio
 - [ ] **Phase 10** — Architecture Review
 - [ ] **Phase 11** — Production Hardening

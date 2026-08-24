@@ -16,17 +16,17 @@ The project is designed as a **Modular Monolith** using a monorepo structure man
 ```text
 +--------------------------------------------------------+
 |                  Next.js 15 Frontend                   |
-| (App Router, ThemeToggle, TreeView, GraphUI, SearchUI, AIChat) |
+| (App Router, ThemeToggle, TreeView, GraphUI, SearchUI, AIChat, ArchAudit) |
 +---------------------------+----------------------------+
                             |
                             | HTTP / REST (Axios)
                             v
 +---------------------------+----------------------------+      +--------------------------+
 |                  NestJS v10 Backend                    |<---->| @architect-ai/shared     |
-| (Auth, Users, Health, Repos, Graph, Search, AiModule)  |      | (Types, Schemas, Consts) |
+| (Auth, Users, Health, Repos, Graph, Search, Ai, Arch)  |      | (Types, Schemas, Consts) |
 +-----+---------------------+----------------------+-----+      +--------------------------+
       |                     |                      |
-      | Prisma ORM          | Redis Lock (EX 60/600)| Octokit GitHub REST
+      | Prisma ORM          | Redis Lock (EX 600)  | Octokit GitHub REST
       v                     v                      v
 +-----+-----+         +-----+-----+          +-----+-----+
 |PostgreSQL |         |   Redis   |          |  GitHub   |
@@ -34,7 +34,7 @@ The project is designed as a **Modular Monolith** using a monorepo structure man
 +-----------+         +-----------+          +-----------+
 ```
 
-## Repository Intelligence & Grounded RAG Flow
+## Repository Intelligence, Knowledge Graph, Auditing & Grounded RAG Flow
 
 ```text
 GitHub REST API (Git Trees API)
@@ -54,30 +54,37 @@ RepositorySyncService
    │      ├── Searchable content extraction & context formatting
    │      ├── SHA-256 content hashing & idempotency check
    │      └── Vector embedding generation & persistence
-   ├── 8. Update RepositorySync record (status: SUCCESS)
-   └── 9. Release Redis Lock safely (matching UUID)
+   ├── 8. Run Architecture Analysis (ArchitectureAnalysisService)
+   │      ├── Component Discovery (ArchitectureDiscoveryService)
+   │      ├── Structural Audit (ArchitectureAuditorService: Cycles, Coupling, Boundaries)
+   │      ├── Pattern Detection (ArchitecturePatternService)
+   │      ├── Deterministic Risk Scoring (ArchitectureRiskService 0-100)
+   │      └── Persist ArchitectureAnalysis & ArchitectureFinding records
+   ├── 9. Update RepositorySync record (status: SUCCESS)
+   └── 10. Release Redis Lock safely (matching UUID)
    ↓
-PostgreSQL (Repository, RepositoryFile, GraphNode, GraphEdge, Embedding, Conversation)
+PostgreSQL (Repository, RepositoryFile, GraphNode, GraphEdge, Embedding, ArchitectureAnalysis, ArchitectureFinding, Conversation)
    ↓
 Grounded RAG Pipeline (RagService)
    ├── 1. Verify Repository Ownership (RepositoryConnection)
    ├── 2. Acquire Redis Lock (key: repository:ai-lock:<repo>:<user>, 60s TTL, NX)
    ├── 3. Parse User Query Intent (QueryUnderstandingService)
    ├── 4. Retrieve Vector + Graph Context (ContextRetrieverService)
-   ├── 5. Weight & Rank Signals (ContextRankerService: Semantic 60%, Graph 25%, Lexical 15%)
-   ├── 6. Format Bounded Context & System Prompt (ContextBuilderService: MAX_CONTEXT_CHARS)
-   ├── 7. Execute LLM Provider (LLMProviderFactory / MockLLMProviderService)
-   ├── 8. Persist Conversation & ConversationMessage History (ConversationService)
-   └── 9. Release Redis Lock safely
+   ├── 5. Retrieve Architecture Context (ArchitectureContextService)
+   ├── 6. Weight & Rank Signals (ContextRankerService: Semantic 60%, Graph 25%, Lexical 15%)
+   ├── 7. Format Bounded Context & System Prompt (ContextBuilderService: MAX_CONTEXT_CHARS)
+   ├── 8. Execute LLM Provider (LLMProviderFactory / MockLLMProviderService)
+   ├── 9. Persist Conversation & ConversationMessage History (ConversationService)
+   └── 10. Release Redis Lock safely
    ↓
-REST APIs (POST /repositories/:id/ai/chat, GET /conversations)
+REST APIs (POST /repositories/:id/architecture/analyze, GET /findings, POST /ai/chat)
    ↓
-Next.js AI Assistant Tab (/repositories/[id])
+Next.js Architecture Audit Tab (/repositories/[id])
 ```
 
 ## Folder Structure
 
-- `frontend/`: React components, views, layout, client-side hooks, and AI chat UI.
-- `backend/`: Core business logic services, controllers, AI/RAG services, middlewares, filters, and interceptors.
+- `frontend/`: React components, views, layout, client-side hooks, AI chat, and Architecture Audit UI.
+- `backend/`: Core business logic services, controllers, AI/RAG services, architecture engine, middlewares, filters, and interceptors.
 - `packages/shared/`: Cross-boundary validation schemas, TypeScript interfaces, and shared constants.
 - `docs/`: ADR logs, architecture design docs, release notes, and phase walkthroughs.

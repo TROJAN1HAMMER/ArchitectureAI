@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6-architecture-discovery] - 2026-08-24
+
+### Added
+
+- `ArchitectureAnalysis` and `ArchitectureFinding` models in Prisma schema with `ArchitectureFindingSeverity`, `ArchitectureFindingType`, and `ArchitectureAnalysisStatus` enums
+- Migration `20260824153232_add_architecture_discovery_auditing`
+- `ArchitectureDiscoveryService` for mapping `GraphNode` and `GraphEdge` records into logical architectural components (`frontend`, `service`, `api`, `database`, `shared`, `tests`)
+- `ArchitectureAuditorService` for deterministic structural analysis:
+  - DFS Tarjan's cycle detection (`CIRCULAR_DEPENDENCY`)
+  - Dynamic threshold coupling analysis (`HIGH_COUPLING`, `DEPENDENCY_HOTSPOT`)
+  - Architectural boundary violation detection (`BOUNDARY_VIOLATION`)
+  - Orphan and oversized module detection (`ORPHAN_COMPONENT`, `LARGE_COMPONENT`)
+- `ArchitecturePatternService` for evidence-backed pattern detection (`Modular Monolith`, `Service Layer Pattern`, `REST API Gateway`, `Component-Based Frontend`)
+- `ArchitectureRiskService` for explainable 0–100 risk score and level calculation (`LOW`, `MODERATE`, `ELEVATED`, `HIGH`, `CRITICAL`)
+- `ArchitectureAnalysisService` orchestrating analysis workflows and Redis locking (`repository:architecture-lock:<repositoryId>`, 600s TTL, `EX 600 NX`)
+- `ArchitectureContextService` enriching Phase 7 RAG context with architecture findings and risk scores
+- REST API endpoints under `ArchitectureController`:
+  - `GET /api/v1/repositories/:id/architecture` (Summary & risk score)
+  - `POST /api/v1/repositories/:id/architecture/analyze` (Trigger analysis, 409 if locked)
+  - `GET /api/v1/repositories/:id/architecture/findings` (Filtered findings)
+  - `GET /api/v1/repositories/:id/architecture/findings/:findingId` (Finding evidence detail)
+  - `GET /api/v1/repositories/:id/architecture/components` (Discovered components)
+  - `GET /api/v1/repositories/:id/architecture/history` (Analysis run history)
+- Frontend Architecture Audit tab (`ArchitectureOverview`, `ArchitectureRiskScore`, `ArchitectureFindings`, `ArchitectureComponents`, `ArchitecturePatterns`, `ArchitectureAnalysisButton`, `ArchitectureHistory`, `ArchitectureFindingDetail`) integrated into `/repositories/[id]` page
+- Unit test suites for discovery, auditor, pattern detection, risk scoring, analysis orchestrator, controller, and dedicated integration test (`architecture-analysis.integration.spec.ts`)
+
+### Security
+
+- Strictly enforced user repository ownership verification on all architecture endpoints (returns HTTP 404/403)
+- Redis request locking prevents concurrent duplicate architecture analysis collisions (returns HTTP 409 Conflict)
+
 ## [0.1.5-ai-rag-foundation] - 2026-08-24
 
 ### Added

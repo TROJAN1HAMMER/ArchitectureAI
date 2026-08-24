@@ -28,6 +28,26 @@ import {
   SemanticSearchResultItem,
 } from "@/components/semantic-search/SemanticSearchResults";
 import { AIChat } from "@/components/ai/AIChat";
+import {
+  ArchitectureOverview,
+  ArchitectureSummary,
+} from "@/components/architecture/ArchitectureOverview";
+import { ArchitectureRiskScore } from "@/components/architecture/ArchitectureRiskScore";
+import {
+  ArchitectureFindings,
+  FindingItem,
+} from "@/components/architecture/ArchitectureFindings";
+import {
+  ArchitectureComponents,
+  ComponentItem,
+} from "@/components/architecture/ArchitectureComponents";
+import { ArchitecturePatterns } from "@/components/architecture/ArchitecturePatterns";
+import { ArchitectureAnalysisButton } from "@/components/architecture/ArchitectureAnalysisButton";
+import {
+  ArchitectureHistory,
+  AnalysisHistoryItem,
+} from "@/components/architecture/ArchitectureHistory";
+import { ArchitectureFindingDetail } from "@/components/architecture/ArchitectureFindingDetail";
 
 interface RepositoryDetail {
   id: string;
@@ -70,8 +90,8 @@ export default function RepositoryDetailPage({
   const repositoryId = resolvedParams.id;
 
   const [activeTab, setActiveTab] = useState<
-    "ai" | "search" | "graph" | "files" | "syncs"
-  >("ai");
+    "architecture" | "ai" | "search" | "graph" | "files" | "syncs"
+  >("architecture");
 
   const [repo, setRepo] = useState<RepositoryDetail | null>(null);
   const [files, setFiles] = useState<RepositoryFileNode[]>([]);
@@ -81,6 +101,17 @@ export default function RepositoryDetailPage({
   );
   const [semanticStatus, setSemanticStatus] =
     useState<SemanticIndexStatusData | null>(null);
+
+  // Architecture state
+  const [archSummary, setArchSummary] = useState<ArchitectureSummary | null>(
+    null,
+  );
+  const [archFindings, setArchFindings] = useState<FindingItem[]>([]);
+  const [archComponents, setArchComponents] = useState<ComponentItem[]>([]);
+  const [archHistory, setArchHistory] = useState<AnalysisHistoryItem[]>([]);
+  const [selectedFinding, setSelectedFinding] = useState<FindingItem | null>(
+    null,
+  );
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -97,30 +128,57 @@ export default function RepositoryDetailPage({
       setLoading(true);
       setError(null);
 
-      const [repoRes, treeRes, syncsRes, graphRes, searchStatusRes] =
-        await Promise.all([
-          api.get(`/repositories/${repositoryId}`),
-          api.get(`/repositories/${repositoryId}/tree?limit=500`),
-          api.get(`/repositories/${repositoryId}/syncs?limit=5`),
-          api.get(`/repositories/${repositoryId}/graph`).catch(() => null),
-          api
-            .get(`/repositories/${repositoryId}/semantic-index`)
-            .catch(() => null),
-        ]);
+      const [
+        repoRes,
+        treeRes,
+        syncsRes,
+        graphRes,
+        searchStatusRes,
+        archSummaryRes,
+        archFindingsRes,
+        archCompRes,
+        archHistRes,
+      ] = await Promise.all([
+        api.get(`/repositories/${repositoryId}`),
+        api.get(`/repositories/${repositoryId}/tree`),
+        api.get(`/repositories/${repositoryId}/syncs`),
+        api.get(`/repositories/${repositoryId}/graph`),
+        api.get(`/repositories/${repositoryId}/semantic-index`),
+        api
+          .get(`/repositories/${repositoryId}/architecture`)
+          .catch(() => ({ data: null })),
+        api
+          .get(`/repositories/${repositoryId}/architecture/findings`)
+          .catch(() => ({ data: { findings: [] } })),
+        api
+          .get(`/repositories/${repositoryId}/architecture/components`)
+          .catch(() => ({ data: { components: [] } })),
+        api
+          .get(`/repositories/${repositoryId}/architecture/history`)
+          .catch(() => ({ data: [] })),
+      ]);
 
-      setRepo(repoRes.data?.data || null);
-      setFiles(treeRes.data?.data?.files || []);
-      setSyncs(syncsRes.data?.data || []);
-      if (graphRes) {
-        setGraphSummary(graphRes.data?.data || null);
+      setRepo(repoRes.data.data);
+      setFiles(treeRes.data.data.files || []);
+      setSyncs(syncsRes.data.data.syncs || []);
+      setGraphSummary(graphRes.data.data);
+      setSemanticStatus(searchStatusRes.data.data);
+
+      if (archSummaryRes.data?.data) {
+        setArchSummary(archSummaryRes.data.data);
       }
-      if (searchStatusRes) {
-        setSemanticStatus(searchStatusRes.data?.data || null);
+      if (archFindingsRes.data?.data?.findings) {
+        setArchFindings(archFindingsRes.data.data.findings);
+      }
+      if (archCompRes.data?.data?.components) {
+        setArchComponents(archCompRes.data.data.components);
+      }
+      if (Array.isArray(archHistRes.data?.data)) {
+        setArchHistory(archHistRes.data.data);
       }
     } catch (err: any) {
       setError(
-        err.response?.data?.error?.message ||
-          "Failed to load repository details",
+        err.response?.data?.message || "Failed to load repository data.",
       );
     } finally {
       setLoading(false);
@@ -131,75 +189,82 @@ export default function RepositoryDetailPage({
     loadRepositoryData();
   }, [loadRepositoryData]);
 
-  const handleSearch = async (query: string, limit: number) => {
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) return;
+
     try {
       setSearchLoading(true);
       setSearchQuery(query);
       const res = await api.get(
-        `/repositories/${repositoryId}/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+        `/repositories/${repositoryId}/search?q=${encodeURIComponent(query)}&limit=15`,
       );
-      setSearchResults(res.data?.data?.results || []);
+      setSearchResults(res.data.data.results || []);
     } catch (err: any) {
-      setSearchResults([]);
+      console.error("Semantic search failed:", err);
     } finally {
       setSearchLoading(false);
     }
   };
 
-  if (loading) {
+  if (loading && !repo) {
     return (
-      <div className="space-y-6 max-w-5xl mx-auto py-6 animate-pulse">
-        <div className="h-6 w-32 bg-zinc-200 dark:bg-zinc-800 rounded" />
-        <div className="h-40 bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
-        <div className="h-80 bg-zinc-200 dark:bg-zinc-800 rounded-xl" />
+      <div className="flex h-64 items-center justify-center">
+        <div className="flex items-center gap-3 text-zinc-500">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-500 border-t-transparent" />
+          <span>Loading repository details...</span>
+        </div>
       </div>
     );
   }
 
   if (error || !repo) {
     return (
-      <div className="max-w-5xl mx-auto py-12 text-center">
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400">
-          <p className="font-semibold">{error || "Repository not found"}</p>
-        </div>
-        <div className="mt-4">
-          <Link
-            href="/repositories"
-            className="text-sm font-semibold text-cyan-600 hover:underline dark:text-cyan-400"
-          >
-            ← Back to Repositories
-          </Link>
+      <div className="space-y-4">
+        <Link
+          href="/repositories"
+          className="text-xs font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+        >
+          ← Back to Repositories
+        </Link>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/50 dark:text-red-400">
+          {error || "Repository not found."}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto py-6">
-      <div>
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Header Navigation & Actions */}
+      <div className="space-y-4">
         <Link
           href="/repositories"
-          className="inline-flex items-center text-xs font-semibold text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 mb-4 transition"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition"
         >
           ← Back to Repositories
         </Link>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                 {repo.fullName}
               </h1>
-              <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
-                {repo.visibility}
-              </span>
-              <RepositorySyncStatus
-                status={repo.syncStatus}
-                filesProcessed={repo.fileCount}
-              />
+              {repo.isPrivate ? (
+                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  Private
+                </span>
+              ) : (
+                <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  Public
+                </span>
+              )}
+
+              <RepositorySyncStatus status={repo.syncStatus} />
             </div>
+
             {repo.description && (
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-2xl">
                 {repo.description}
               </p>
             )}
@@ -214,6 +279,12 @@ export default function RepositoryDetailPage({
             >
               GitHub ↗
             </a>
+
+            <ArchitectureAnalysisButton
+              repositoryId={repo.id}
+              onAnalysisStarted={loadRepositoryData}
+              isRunning={archSummary?.status === "RUNNING"}
+            />
 
             <RepositorySyncButton
               repositoryId={repo.id}
@@ -277,6 +348,17 @@ export default function RepositoryDetailPage({
       {/* Navigation Tabs */}
       <div className="flex border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto">
         <button
+          onClick={() => setActiveTab("architecture")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+            activeTab === "architecture"
+              ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 font-semibold"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          }`}
+        >
+          Architecture Audit 🛡️
+        </button>
+
+        <button
           onClick={() => setActiveTab("ai")}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
             activeTab === "ai"
@@ -333,6 +415,40 @@ export default function RepositoryDetailPage({
       </div>
 
       {/* Tab Contents */}
+      {activeTab === "architecture" && (
+        <div className="space-y-6">
+          <ArchitectureOverview summary={archSummary} />
+          {archSummary && archSummary.status === "SUCCESS" && (
+            <>
+              <ArchitectureRiskScore
+                score={archSummary.riskScore}
+                level={archSummary.riskLevel}
+                explanation={archSummary.riskExplanation}
+              />
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Detected Architecture Patterns
+                </h3>
+                <ArchitecturePatterns
+                  patterns={(archSummary as any).patterns || []}
+                />
+              </div>
+              <ArchitectureFindings
+                findings={archFindings}
+                onSelectFinding={(f) => setSelectedFinding(f)}
+              />
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Discovered Architectural Components
+                </h3>
+                <ArchitectureComponents components={archComponents} />
+              </div>
+            </>
+          )}
+          <ArchitectureHistory history={archHistory} />
+        </div>
+      )}
+
       {activeTab === "ai" && (
         <div className="space-y-6">
           <AIChat repositoryId={repo.id} />
@@ -350,68 +466,106 @@ export default function RepositoryDetailPage({
       {activeTab === "graph" && (
         <div className="space-y-6">
           <GraphSummary summary={graphSummary} />
-          <GraphNeighborhoodView
-            repositoryId={repo.id}
-            selectedNodeId={selectedNodeId}
-            onClearSelection={() => setSelectedNodeId(null)}
-          />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <GraphNodeList
+          {selectedNodeId ? (
+            <GraphNeighborhoodView
               repositoryId={repo.id}
-              onSelectNode={(nodeId) => setSelectedNodeId(nodeId)}
+              selectedNodeId={selectedNodeId}
+              onClearSelection={() => setSelectedNodeId(null)}
             />
-
-            <GraphEdgeList repositoryId={repo.id} />
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <GraphNodeList
+                repositoryId={repo.id}
+                onSelectNode={(nodeId) => setSelectedNodeId(nodeId)}
+              />
+              <GraphEdgeList repositoryId={repo.id} />
+            </div>
+          )}
         </div>
       )}
 
       {activeTab === "files" && (
         <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            Repository File Navigation
+          </h2>
           <RepositoryTree files={files} />
         </div>
       )}
 
       {activeTab === "syncs" && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800 text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Trigger</th>
-                  <th className="px-4 py-3">Files Discovered</th>
-                  <th className="px-4 py-3">Started At</th>
-                  <th className="px-4 py-3">Completed At</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-zinc-700 dark:text-zinc-300">
-                {syncs.map((sync) => (
-                  <tr key={sync.id}>
-                    <td className="px-4 py-3">
-                      <RepositorySyncStatus
-                        status={sync.status}
-                        filesProcessed={sync.filesProcessed}
-                      />
-                    </td>
-                    <td className="px-4 py-3 font-mono">{sync.trigger}</td>
-                    <td className="px-4 py-3">{sync.filesDiscovered}</td>
-                    <td className="px-4 py-3">
-                      {new Date(sync.startedAt).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      {sync.completedAt
-                        ? new Date(sync.completedAt).toLocaleString()
-                        : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            Synchronization History
+          </h2>
+          {syncs.length === 0 ? (
+            <p className="text-sm text-zinc-500">
+              No sync history recorded yet.
+            </p>
+          ) : (
+            <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Status</th>
+                      <th className="px-4 py-3 font-semibold">Trigger</th>
+                      <th className="px-4 py-3 font-semibold">
+                        Files Processed
+                      </th>
+                      <th className="px-4 py-3 font-semibold">Started At</th>
+                      <th className="px-4 py-3 font-semibold">Completed At</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                    {syncs.map((sync) => (
+                      <tr
+                        key={sync.id}
+                        className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50"
+                      >
+                        <td className="px-4 py-3 font-medium">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                              sync.status === "SUCCESS"
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                : sync.status === "FAILED"
+                                  ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                            }`}
+                          >
+                            {sync.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300 font-mono">
+                          {sync.trigger}
+                        </td>
+                        <td className="px-4 py-3 text-zinc-700 dark:text-zinc-300">
+                          {sync.filesProcessed} / {sync.filesDiscovered}
+                        </td>
+                        <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400">
+                          {new Date(sync.startedAt).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400">
+                          {sync.completedAt
+                            ? new Date(sync.completedAt).toLocaleString()
+                            : "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Finding Detail Modal */}
+      <ArchitectureFindingDetail
+        finding={selectedFinding}
+        onClose={() => setSelectedFinding(null)}
+      />
     </div>
   );
 }

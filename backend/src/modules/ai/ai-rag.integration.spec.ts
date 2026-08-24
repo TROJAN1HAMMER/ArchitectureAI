@@ -17,6 +17,12 @@ import { ContextBuilderService } from "./rag/context-builder.service.js";
 import { ConversationService } from "./conversation/conversation.service.js";
 import { MockLLMProviderService } from "./llm/mock-llm-provider.service.js";
 import { LLMProviderFactory } from "./llm/llm-provider.factory.js";
+import { ArchitectureDiscoveryService } from "../architecture/architecture-discovery.service.js";
+import { ArchitectureAuditorService } from "../architecture/architecture-auditor.service.js";
+import { ArchitecturePatternService } from "../architecture/architecture-pattern.service.js";
+import { ArchitectureRiskService } from "../architecture/architecture-risk.service.js";
+import { ArchitectureAnalysisService } from "../architecture/architecture-analysis.service.js";
+import { ArchitectureContextService } from "../architecture/architecture-context.service.js";
 import { ConfigModule } from "@nestjs/config";
 
 describe("Phase 7 AI Repository RAG Integration Test", () => {
@@ -99,6 +105,12 @@ describe("Phase 7 AI Repository RAG Integration Test", () => {
         ContextRetrieverService,
         ContextRankerService,
         ContextBuilderService,
+        ArchitectureDiscoveryService,
+        ArchitectureAuditorService,
+        ArchitecturePatternService,
+        ArchitectureRiskService,
+        ArchitectureAnalysisService,
+        ArchitectureContextService,
         MockLLMProviderService,
         LLMProviderFactory,
         ConversationService,

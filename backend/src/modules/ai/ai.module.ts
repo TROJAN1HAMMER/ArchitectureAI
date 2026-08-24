@@ -3,6 +3,7 @@ import { PrismaModule } from "../../prisma/prisma.module.js";
 import { RedisModule } from "../../common/redis/redis.module.js";
 import { SemanticSearchModule } from "../semantic-search/semantic-search.module.js";
 import { KnowledgeGraphModule } from "../knowledge-graph/knowledge-graph.module.js";
+import { ArchitectureModule } from "../architecture/architecture.module.js";
 import { AiController } from "./ai.controller.js";
 import { RagService } from "./rag/rag.service.js";
 import { QueryUnderstandingService } from "./rag/query-understanding.service.js";
@@ -19,6 +20,7 @@ import { LLMProviderFactory } from "./llm/llm-provider.factory.js";
     RedisModule,
     SemanticSearchModule,
     KnowledgeGraphModule,
+    ArchitectureModule,
   ],
   controllers: [AiController],
   providers: [

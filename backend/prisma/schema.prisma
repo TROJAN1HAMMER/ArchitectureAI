@@ -56,6 +56,34 @@ enum MessageRole {
   ASSISTANT
 }
 
+enum ArchitectureFindingSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ArchitectureFindingType {
+  CIRCULAR_DEPENDENCY
+  HIGH_COUPLING
+  ARCHITECTURAL_DRIFT
+  BOUNDARY_VIOLATION
+  ORPHAN_COMPONENT
+  LARGE_COMPONENT
+  DEPENDENCY_HOTSPOT
+  DUPLICATE_STRUCTURE
+  PATTERN_DETECTED
+  RISKY_DEPENDENCY
+}
+
+enum ArchitectureAnalysisStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
 model User {
   id            String                 @id @default(uuid())
   email         String                 @unique
@@ -108,32 +136,34 @@ model GitHubAccount {
 }
 
 model Repository {
-  id                 String                 @id @default(uuid())
-  githubRepositoryId String                 @unique
-  ownerLogin         String
-  name               String
-  fullName           String
-  description        String?
-  htmlUrl            String
-  defaultBranch      String
-  visibility         String
-  isPrivate          Boolean
-  language           String?
-  stars              Int                    @default(0)
-  forks              Int                    @default(0)
-  isArchived         Boolean                @default(false)
-  connectedAt        DateTime               @default(now())
-  lastSyncedAt       DateTime?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  connections        RepositoryConnection[]
-  syncs              RepositorySync[]
-  files              RepositoryFile[]
-  graphNodes         GraphNode[]
-  graphEdges         GraphEdge[]
-  embeddings         Embedding[]
-  semanticIndexes    SemanticIndex[]
-  conversations      Conversation[]
+  id                   String                 @id @default(uuid())
+  githubRepositoryId   String                 @unique
+  ownerLogin           String
+  name                 String
+  fullName             String
+  description          String?
+  htmlUrl              String
+  defaultBranch        String
+  visibility           String
+  isPrivate            Boolean
+  language             String?
+  stars                Int                    @default(0)
+  forks                Int                    @default(0)
+  isArchived           Boolean                @default(false)
+  connectedAt          DateTime               @default(now())
+  lastSyncedAt         DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  connections          RepositoryConnection[]
+  syncs                RepositorySync[]
+  files                RepositoryFile[]
+  graphNodes           GraphNode[]
+  graphEdges           GraphEdge[]
+  embeddings           Embedding[]
+  semanticIndexes      SemanticIndex[]
+  conversations        Conversation[]
+  architectureAnalyses ArchitectureAnalysis[]
+  architectureFindings ArchitectureFinding[]
 
   @@index([githubRepositoryId])
 }
@@ -195,21 +225,23 @@ model RepositorySync {
 }
 
 model GraphNode {
-  id            String          @id @default(uuid())
-  repositoryId  String
-  repository    Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  fileId        String?
-  file          RepositoryFile? @relation(fields: [fileId], references: [id], onDelete: SetNull)
-  type          NodeType
-  name          String
-  qualifiedName String
-  path          String?
-  metadata      Json?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  outgoingEdges GraphEdge[]     @relation("sourceNode")
-  incomingEdges GraphEdge[]     @relation("targetNode")
-  embeddings    Embedding[]
+  id                 String                @id @default(uuid())
+  repositoryId       String
+  repository         Repository            @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  fileId             String?
+  file               RepositoryFile?       @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  type               NodeType
+  name               String
+  qualifiedName      String
+  path               String?
+  metadata           Json?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  outgoingEdges      GraphEdge[]           @relation("sourceNode")
+  incomingEdges      GraphEdge[]           @relation("targetNode")
+  embeddings         Embedding[]
+  sourceFindings     ArchitectureFinding[] @relation("sourceFindingNode")
+  targetFindings     ArchitectureFinding[] @relation("targetFindingNode")
 
   @@unique([repositoryId, qualifiedName])
   @@index([repositoryId])
@@ -307,4 +339,52 @@ model ConversationMessage {
   createdAt      DateTime     @default(now())
 
   @@index([conversationId])
+}
+
+model ArchitectureAnalysis {
+  id                 String                     @id @default(uuid())
+  repositoryId       String
+  repository         Repository                 @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  status             ArchitectureAnalysisStatus @default(PENDING)
+  startedAt          DateTime                   @default(now())
+  completedAt        DateTime?
+  errorMessage       String?
+  nodesAnalyzed      Int                        @default(0)
+  edgesAnalyzed      Int                        @default(0)
+  findingsGenerated  Int                        @default(0)
+  riskScore          Float                      @default(0.0)
+  riskLevel          String                     @default("LOW")
+  metadata           Json?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  findings           ArchitectureFinding[]
+
+  @@index([repositoryId])
+  @@index([status])
+}
+
+model ArchitectureFinding {
+  id           String                       @id @default(uuid())
+  analysisId   String
+  analysis     ArchitectureAnalysis         @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  repositoryId String
+  repository   Repository                   @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  type         ArchitectureFindingType
+  severity     ArchitectureFindingSeverity
+  title        String
+  description  String
+  confidence   Float                        @default(1.0)
+  sourceNodeId String?
+  sourceNode   GraphNode?                   @relation("sourceFindingNode", fields: [sourceNodeId], references: [id], onDelete: SetNull)
+  targetNodeId String?
+  targetNode   GraphNode?                   @relation("targetFindingNode", fields: [targetNodeId], references: [id], onDelete: SetNull)
+  evidence     Json?
+  metadata     Json?
+  createdAt    DateTime                     @default(now())
+
+  @@unique([analysisId, type, title, sourceNodeId, targetNodeId])
+  @@index([analysisId])
+  @@index([repositoryId])
+  @@index([type])
+  @@index([severity])
 }

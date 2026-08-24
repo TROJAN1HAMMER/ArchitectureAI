@@ -10,6 +10,7 @@ import { QueryUnderstandingService } from "./query-understanding.service.js";
 import { ContextRetrieverService } from "./context-retriever.service.js";
 import { ContextRankerService } from "./context-ranker.service.js";
 import { ContextBuilderService } from "./context-builder.service.js";
+import { ArchitectureContextService } from "../../architecture/architecture-context.service.js";
 import { LLMProviderFactory } from "../llm/llm-provider.factory.js";
 import { ConversationService } from "../conversation/conversation.service.js";
 import { MessageRole } from "@prisma/client";
@@ -49,6 +50,7 @@ export class RagService {
     private readonly contextRetrieverService: ContextRetrieverService,
     private readonly contextRankerService: ContextRankerService,
     private readonly contextBuilderService: ContextBuilderService,
+    private readonly architectureContextService: ArchitectureContextService,
     private readonly llmProviderFactory: LLMProviderFactory,
     private readonly conversationService: ConversationService,
   ) {}
@@ -130,6 +132,26 @@ export class RagService {
         rankedCandidates,
       );
 
+      let fullContextBlock = builtContext.contextBlock;
+
+      // 8b. Architecture Context Enrichment if query relates to architecture/risk
+      const lowerQ = userQuery.toLowerCase();
+      if (
+        parsedQuery.intent === "architecture" ||
+        lowerQ.includes("risk") ||
+        lowerQ.includes("finding") ||
+        lowerQ.includes("pattern") ||
+        lowerQ.includes("coupling") ||
+        lowerQ.includes("cycle")
+      ) {
+        const archContext =
+          await this.architectureContextService.getArchitectureContext(
+            userId,
+            repositoryId,
+          );
+        fullContextBlock = `${archContext}\n\n${fullContextBlock}`;
+      }
+
       const systemPrompt = this.contextBuilderService.buildSystemPrompt();
 
       // 9. LLM Provider Execution
@@ -137,7 +159,7 @@ export class RagService {
       const llmResponse = await provider.generate({
         systemPrompt,
         userPrompt: userQuery,
-        context: builtContext.contextBlock,
+        context: fullContextBlock,
       });
 
       // 10. Persist ASSISTANT message
