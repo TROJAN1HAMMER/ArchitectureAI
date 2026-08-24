@@ -14,6 +14,7 @@ import { ArchitectureContextService } from "../../architecture/architecture-cont
 import { SystemDesignContextService } from "../../system-design/system-design-context.service.js";
 import { GovernanceContextService } from "../../governance/governance-context.service.js";
 import { RemediationContextService } from "../../remediation/remediation-context.service.js";
+import { TopologyContextService } from "../../topology/topology-context.service.js";
 import { LLMProviderFactory } from "../llm/llm-provider.factory.js";
 import { ConversationService } from "../conversation/conversation.service.js";
 import { MessageRole } from "@prisma/client";
@@ -57,6 +58,7 @@ export class RagService {
     private readonly systemDesignContextService: SystemDesignContextService,
     private readonly governanceContextService: GovernanceContextService,
     private readonly remediationContextService: RemediationContextService,
+    private readonly topologyContextService: TopologyContextService,
     private readonly llmProviderFactory: LLMProviderFactory,
     private readonly conversationService: ConversationService,
   ) {}
@@ -200,11 +202,21 @@ export class RagService {
         lowerQ.includes("pull request") ||
         lowerQ.includes("pr")
       ) {
-        const remContext =
+        const remediationContext =
           await this.remediationContextService.getRemediationContext(
             repositoryId,
           );
-        fullContextBlock = `${remContext}\n\n${fullContextBlock}`;
+        fullContextBlock = `${remediationContext}\n\n${fullContextBlock}`;
+      }
+
+      // Enterprise Topology Context
+      const topologyContext =
+        await this.topologyContextService.getTopologyContext(
+          repositoryId,
+          userQuery,
+        );
+      if (topologyContext) {
+        fullContextBlock = `${topologyContext}\n\n${fullContextBlock}`;
       }
 
       const systemPrompt = this.contextBuilderService.buildSystemPrompt();

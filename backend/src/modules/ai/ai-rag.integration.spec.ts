@@ -35,6 +35,7 @@ import { ArchitectureDiffService } from "../governance/architecture-diff.service
 import { GovernanceReviewService } from "../governance/governance-review.service.js";
 import { GovernanceContextService } from "../governance/governance-context.service.js";
 import { RemediationContextService } from "../remediation/remediation-context.service.js";
+import { TopologyContextService } from "../topology/topology-context.service.js";
 import { ConfigModule } from "@nestjs/config";
 
 describe("Phase 7 AI Repository RAG Integration Test", () => {
@@ -135,6 +136,7 @@ describe("Phase 7 AI Repository RAG Integration Test", () => {
         GovernanceReviewService,
         GovernanceContextService,
         RemediationContextService,
+        TopologyContextService,
         MockLLMProviderService,
         LLMProviderFactory,
         ConversationService,

@@ -186,22 +186,81 @@ enum RemediationRiskLevel {
   CRITICAL
 }
 
+enum RepositoryRole {
+  FRONTEND
+  BACKEND
+  SERVICE
+  LIBRARY
+  DATABASE
+  INFRASTRUCTURE
+  MOBILE
+  SHARED
+  UNKNOWN
+}
+
+enum RepositoryDependencyType {
+  IMPORTS
+  HTTP_CALL
+  API_DEPENDENCY
+  SHARED_LIBRARY
+  DATABASE_DEPENDENCY
+  EVENT_DEPENDENCY
+  CONFIG_DEPENDENCY
+  UNKNOWN
+}
+
+enum DependencyConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum EnterpriseTopologyStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum EnterpriseFindingType {
+  CIRCULAR_SERVICE_DEPENDENCY
+  HIGH_SERVICE_COUPLING
+  SINGLE_POINT_OF_FAILURE
+  SHARED_LIBRARY_HOTSPOT
+  CROSS_BOUNDARY_DEPENDENCY
+  DATABASE_COUPLING
+  API_DEPENDENCY_RISK
+  ORPHAN_REPOSITORY
+  DEPENDENCY_HOTSPOT
+  ARCHITECTURAL_DRIFT
+  TOPOLOGY_RISK
+}
+
+enum EnterpriseFindingSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 model User {
-  id            String                 @id @default(uuid())
-  email         String                 @unique
-  name          String?
-  passwordHash  String
-  role          Role                   @default(USER)
-  isActive      Boolean                @default(true)
-  lastLoginAt   DateTime?
-  lastSeenAt    DateTime?
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
-  sessions      Session[]
-  gitHubAccount GitHubAccount?
-  connections   RepositoryConnection[]
-  conversations Conversation[]
-  remediations  RemediationPlan[]
+  id                String                 @id @default(uuid())
+  email             String                 @unique
+  name              String?
+  passwordHash      String
+  role              Role                   @default(USER)
+  isActive          Boolean                @default(true)
+  lastLoginAt       DateTime?
+  lastSeenAt        DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  sessions          Session[]
+  gitHubAccount     GitHubAccount?
+  connections       RepositoryConnection[]
+  conversations     Conversation[]
+  remediations      RemediationPlan[]
+  enterpriseSystems EnterpriseSystem[]
 
   @@index([email])
 }
@@ -238,43 +297,69 @@ model GitHubAccount {
   @@index([githubUserId])
 }
 
+model EnterpriseSystem {
+  id           String                       @id @default(uuid())
+  userId       String
+  user         User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
+  repositories Repository[]
+  dependencies RepositoryDependency[]
+  analyses     EnterpriseTopologyAnalysis[]
+  findings     EnterpriseTopologyFinding[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
 model Repository {
-  id                   String                 @id @default(uuid())
-  githubRepositoryId   String                 @unique
-  ownerLogin           String
-  name                 String
-  fullName             String
-  description          String?
-  htmlUrl              String
-  defaultBranch        String
-  visibility           String
-  isPrivate            Boolean
-  language             String?
-  stars                Int                    @default(0)
-  forks                Int                    @default(0)
-  isArchived           Boolean                @default(false)
-  connectedAt          DateTime               @default(now())
-  lastSyncedAt         DateTime?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-  connections          RepositoryConnection[]
-  syncs                RepositorySync[]
-  files                RepositoryFile[]
-  graphNodes           GraphNode[]
-  graphEdges           GraphEdge[]
-  embeddings           Embedding[]
-  semanticIndexes      SemanticIndex[]
-  conversations        Conversation[]
-  architectureAnalyses ArchitectureAnalysis[]
-  architectureFindings ArchitectureFinding[]
-  systemDesigns        SystemDesign[]
-  snapshots            ArchitectureSnapshot[]
-  diffs                ArchitectureDiff[]
-  governanceRules      GovernanceRule[]
-  governanceViolations GovernanceViolation[]
-  remediations         RemediationPlan[]
+  id                       String                      @id @default(uuid())
+  githubRepositoryId       String                      @unique
+  ownerLogin               String
+  name                     String
+  fullName                 String
+  description              String?
+  htmlUrl                  String
+  defaultBranch            String
+  visibility               String
+  isPrivate                Boolean
+  language                 String?
+  stars                    Int                         @default(0)
+  forks                    Int                         @default(0)
+  isArchived               Boolean                     @default(false)
+  enterpriseSystemId       String?
+  enterpriseSystem         EnterpriseSystem?           @relation(fields: [enterpriseSystemId], references: [id], onDelete: SetNull)
+  role                     RepositoryRole              @default(UNKNOWN)
+  connectedAt              DateTime                    @default(now())
+  lastSyncedAt             DateTime?
+  createdAt                DateTime                    @default(now())
+  updatedAt                DateTime                    @updatedAt
+  connections              RepositoryConnection[]
+  syncs                    RepositorySync[]
+  files                    RepositoryFile[]
+  graphNodes               GraphNode[]
+  graphEdges               GraphEdge[]
+  embeddings               Embedding[]
+  semanticIndexes          SemanticIndex[]
+  conversations            Conversation[]
+  architectureAnalyses     ArchitectureAnalysis[]
+  architectureFindings     ArchitectureFinding[]
+  systemDesigns            SystemDesign[]
+  snapshots                ArchitectureSnapshot[]
+  diffs                    ArchitectureDiff[]
+  governanceRules          GovernanceRule[]
+  governanceViolations     GovernanceViolation[]
+  remediations             RemediationPlan[]
+  sourceDependencies       RepositoryDependency[]      @relation("sourceRepo")
+  targetDependencies       RepositoryDependency[]      @relation("targetRepo")
+  sourceEnterpriseFindings EnterpriseTopologyFinding[] @relation("sourceEnterpriseFindingRepo")
+  targetEnterpriseFindings EnterpriseTopologyFinding[] @relation("targetEnterpriseFindingRepo")
 
   @@index([githubRepositoryId])
+  @@index([enterpriseSystemId])
+  @@index([role])
 }
 
 model RepositoryFile {
@@ -314,6 +399,27 @@ model RepositoryConnection {
   @@index([repositoryId])
 }
 
+model RepositoryDependency {
+  id                 String                   @id @default(uuid())
+  enterpriseSystemId String
+  enterpriseSystem   EnterpriseSystem         @relation(fields: [enterpriseSystemId], references: [id], onDelete: Cascade)
+  sourceRepositoryId String
+  sourceRepository   Repository               @relation("sourceRepo", fields: [sourceRepositoryId], references: [id], onDelete: Cascade)
+  targetRepositoryId String
+  targetRepository   Repository               @relation("targetRepo", fields: [targetRepositoryId], references: [id], onDelete: Cascade)
+  type               RepositoryDependencyType @default(UNKNOWN)
+  confidence         DependencyConfidence     @default(MEDIUM)
+  evidence           Json?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@unique([sourceRepositoryId, targetRepositoryId, type])
+  @@index([enterpriseSystemId])
+  @@index([sourceRepositoryId])
+  @@index([targetRepositoryId])
+  @@index([type])
+}
+
 model RepositorySync {
   id              String      @id @default(uuid())
   repositoryId    String
@@ -334,27 +440,27 @@ model RepositorySync {
 }
 
 model GraphNode {
-  id                 String                @id @default(uuid())
-  repositoryId       String
-  repository         Repository            @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  fileId             String?
-  file               RepositoryFile?       @relation(fields: [fileId], references: [id], onDelete: SetNull)
-  type               NodeType
-  name               String
-  qualifiedName      String
-  path               String?
-  metadata           Json?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  outgoingEdges      GraphEdge[]           @relation("sourceNode")
-  incomingEdges      GraphEdge[]           @relation("targetNode")
-  embeddings         Embedding[]
-  sourceFindings     ArchitectureFinding[] @relation("sourceFindingNode")
-  targetFindings     ArchitectureFinding[] @relation("targetFindingNode")
-  diagramNodes       DiagramNode[]
-  snapshotNodes      ArchitectureSnapshotNode[]
-  sourceViolations   GovernanceViolation[] @relation("sourceViolationNode")
-  targetViolations   GovernanceViolation[] @relation("targetViolationNode")
+  id               String                     @id @default(uuid())
+  repositoryId     String
+  repository       Repository                 @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  fileId           String?
+  file             RepositoryFile?            @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  type             NodeType
+  name             String
+  qualifiedName    String
+  path             String?
+  metadata         Json?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  outgoingEdges    GraphEdge[]                @relation("sourceNode")
+  incomingEdges    GraphEdge[]                @relation("targetNode")
+  embeddings       Embedding[]
+  sourceFindings   ArchitectureFinding[]      @relation("sourceFindingNode")
+  targetFindings   ArchitectureFinding[]      @relation("targetFindingNode")
+  diagramNodes     DiagramNode[]
+  snapshotNodes    ArchitectureSnapshotNode[]
+  sourceViolations GovernanceViolation[]      @relation("sourceViolationNode")
+  targetViolations GovernanceViolation[]      @relation("targetViolationNode")
 
   @@unique([repositoryId, qualifiedName])
   @@index([repositoryId])
@@ -589,29 +695,29 @@ model DiagramEdge {
 }
 
 model ArchitectureSnapshot {
-  id                     String                    @id @default(uuid())
+  id                     String                     @id @default(uuid())
   repositoryId           String
-  repository             Repository                @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repository             Repository                 @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   architectureAnalysisId String?
-  architectureAnalysis   ArchitectureAnalysis?     @relation(fields: [architectureAnalysisId], references: [id], onDelete: SetNull)
+  architectureAnalysis   ArchitectureAnalysis?      @relation(fields: [architectureAnalysisId], references: [id], onDelete: SetNull)
   systemDesignId         String?
-  systemDesign           SystemDesign?             @relation(fields: [systemDesignId], references: [id], onDelete: SetNull)
-  version                Int                       @default(1)
+  systemDesign           SystemDesign?              @relation(fields: [systemDesignId], references: [id], onDelete: SetNull)
+  version                Int                        @default(1)
   label                  String
   commitSha              String?
   branch                 String?
-  nodesCount             Int                       @default(0)
-  edgesCount             Int                       @default(0)
-  componentsCount        Int                       @default(0)
-  findingsCount          Int                       @default(0)
-  riskScore              Float                     @default(0.0)
-  riskLevel              String                    @default("LOW")
+  nodesCount             Int                        @default(0)
+  edgesCount             Int                        @default(0)
+  componentsCount        Int                        @default(0)
+  findingsCount          Int                        @default(0)
+  riskScore              Float                      @default(0.0)
+  riskLevel              String                     @default("LOW")
   metadata               Json?
-  createdAt              DateTime                  @default(now())
+  createdAt              DateTime                   @default(now())
   nodes                  ArchitectureSnapshotNode[]
   edges                  ArchitectureSnapshotEdge[]
-  fromDiffs              ArchitectureDiff[]        @relation("fromSnapshot")
-  toDiffs                ArchitectureDiff[]        @relation("toSnapshot")
+  fromDiffs              ArchitectureDiff[]         @relation("fromSnapshot")
+  toDiffs                ArchitectureDiff[]         @relation("toSnapshot")
 
   @@unique([repositoryId, version])
   @@index([repositoryId])
@@ -818,4 +924,51 @@ model RemediationExecution {
 
   @@index([remediationId])
   @@index([branchName])
+}
+
+model EnterpriseTopologyAnalysis {
+  id                   String                      @id @default(uuid())
+  enterpriseSystemId   String
+  enterpriseSystem     EnterpriseSystem            @relation(fields: [enterpriseSystemId], references: [id], onDelete: Cascade)
+  status               EnterpriseTopologyStatus    @default(PENDING)
+  startedAt            DateTime                    @default(now())
+  completedAt          DateTime?
+  errorMessage         String?
+  repositoriesAnalyzed Int                         @default(0)
+  dependenciesAnalyzed Int                         @default(0)
+  findingsGenerated    Int                         @default(0)
+  riskScore            Float                       @default(0.0)
+  riskLevel            String                      @default("LOW")
+  factorBreakdown      Json?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  findings             EnterpriseTopologyFinding[]
+
+  @@index([enterpriseSystemId])
+  @@index([status])
+}
+
+model EnterpriseTopologyFinding {
+  id                 String                     @id @default(uuid())
+  analysisId         String
+  analysis           EnterpriseTopologyAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  enterpriseSystemId String
+  enterpriseSystem   EnterpriseSystem           @relation(fields: [enterpriseSystemId], references: [id], onDelete: Cascade)
+  type               EnterpriseFindingType
+  severity           EnterpriseFindingSeverity  @default(HIGH)
+  title              String
+  description        String
+  confidence         Float                      @default(1.0)
+  sourceRepositoryId String?
+  sourceRepository   Repository?                @relation("sourceEnterpriseFindingRepo", fields: [sourceRepositoryId], references: [id], onDelete: SetNull)
+  targetRepositoryId String?
+  targetRepository   Repository?                @relation("targetEnterpriseFindingRepo", fields: [targetRepositoryId], references: [id], onDelete: SetNull)
+  evidence           Json?
+  metadata           Json?
+  createdAt          DateTime                   @default(now())
+
+  @@index([analysisId])
+  @@index([enterpriseSystemId])
+  @@index([type])
+  @@index([severity])
 }
