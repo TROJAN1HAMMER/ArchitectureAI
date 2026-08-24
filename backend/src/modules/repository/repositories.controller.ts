@@ -13,6 +13,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiQuery,
 } from "@nestjs/swagger";
 import { RepositoriesService } from "./repositories.service.js";
 import { ConnectRepositoryDto } from "../github/dto/connect-repository.dto.js";
@@ -83,13 +84,63 @@ export class RepositoriesController {
     return this.repositoriesService.disconnectRepository(userId, id);
   }
 
+  @Get(":repositoryId")
+  @ApiOperation({ summary: "Get details for a specific repository" })
+  @ApiResponse({
+    status: 200,
+    description: "Repository details and file count",
+  })
+  async getById(
+    @CurrentUser("id") userId: string,
+    @Param("repositoryId") id: string,
+  ) {
+    return this.repositoriesService.getRepositoryById(userId, id);
+  }
+
+  @Get(":repositoryId/syncs")
+  @ApiOperation({ summary: "Get synchronization history for a repository" })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiResponse({ status: 200, description: "Repository synchronization list" })
+  async getSyncs(
+    @CurrentUser("id") userId: string,
+    @Param("repositoryId") id: string,
+    @Query("limit") limit?: string,
+  ) {
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    return this.repositoriesService.getRepositorySyncs(userId, id, limitNum);
+  }
+
+  @Get(":repositoryId/tree")
+  @ApiOperation({ summary: "Get normalized file tree for a repository" })
+  @ApiQuery({ name: "path", required: false, type: String })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiResponse({ status: 200, description: "Repository file tree" })
+  async getTree(
+    @CurrentUser("id") userId: string,
+    @Param("repositoryId") id: string,
+    @Query("path") path?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const limitNum = limit ? parseInt(limit, 10) : 100;
+    return this.repositoriesService.getRepositoryTree(
+      userId,
+      id,
+      path,
+      limitNum,
+    );
+  }
+
   @Post(":repositoryId/sync")
   @ApiOperation({
-    summary: "Trigger manual repository metadata synchronization",
+    summary: "Trigger manual repository metadata and file tree synchronization",
   })
   @ApiResponse({
     status: 200,
-    description: "Synchronization completed successfully",
+    description: "Synchronization triggered successfully",
+  })
+  @ApiResponse({
+    status: 409,
+    description: "Synchronization already in progress",
   })
   async sync(
     @CurrentUser("id") userId: string,

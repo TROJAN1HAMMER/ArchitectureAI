@@ -2,19 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import api from "@/services/api";
-
-interface Repository {
-  id: string;
-  githubRepositoryId: string;
-  name: string;
-  fullName: string;
-  owner: string;
-  visibility: string;
-  defaultBranch: string;
-  url: string;
-  connectedAt?: string;
-  lastSyncedAt?: string;
-}
+import { RepositoryCard, RepositoryData } from "../repository/RepositoryCard";
 
 interface GithubRepo {
   githubRepositoryId: string;
@@ -38,7 +26,7 @@ export function RepositoryList({ githubConnected }: RepositoryListProps) {
     "connected",
   );
 
-  const [connectedRepos, setConnectedRepos] = useState<Repository[]>([]);
+  const [connectedRepos, setConnectedRepos] = useState<RepositoryData[]>([]);
   const [availableRepos, setAvailableRepos] = useState<GithubRepo[]>([]);
 
   const [loading, setLoading] = useState(false);
@@ -132,20 +120,6 @@ export function RepositoryList({ githubConnected }: RepositoryListProps) {
     }
   };
 
-  const handleSync = async (id: string) => {
-    try {
-      setLoading(true);
-      await api.post(`/repositories/${id}/sync`);
-      await fetchConnected();
-    } catch (err: any) {
-      setError(
-        err.response?.data?.error?.message ||
-          "Failed to sync repository metadata",
-      );
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex border-b border-zinc-200 dark:border-zinc-800">
@@ -184,7 +158,7 @@ export function RepositoryList({ githubConnected }: RepositoryListProps) {
           {[1, 2, 3].map((n) => (
             <div
               key={n}
-              className="h-20 w-full rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 animate-pulse"
+              className="h-24 w-full rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 animate-pulse"
             />
           ))}
         </div>
@@ -201,42 +175,12 @@ export function RepositoryList({ githubConnected }: RepositoryListProps) {
             </div>
           ) : (
             connectedRepos.map((repo) => (
-              <div
+              <RepositoryCard
                 key={repo.id}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                      {repo.fullName}
-                    </span>
-                    <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200">
-                      {repo.visibility}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    Default Branch:{" "}
-                    <span className="font-mono">{repo.defaultBranch}</span>
-                    {repo.lastSyncedAt &&
-                      ` • Last Synced: ${new Date(repo.lastSyncedAt).toLocaleString()}`}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleSync(repo.id)}
-                    className="inline-flex items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 transition dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    Sync Metadata
-                  </button>
-                  <button
-                    onClick={() => handleDisconnect(repo.id)}
-                    className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 shadow-sm hover:bg-red-50 transition dark:border-red-900/30 dark:bg-zinc-900 dark:text-red-400 dark:hover:bg-red-950/20"
-                  >
-                    Disconnect
-                  </button>
-                </div>
-              </div>
+                repository={repo}
+                onSyncComplete={fetchConnected}
+                onDisconnect={handleDisconnect}
+              />
             ))
           )}
         </div>

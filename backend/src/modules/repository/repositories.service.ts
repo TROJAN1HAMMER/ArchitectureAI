@@ -1,13 +1,9 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  ForbiddenException,
-} from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service.js";
 import { GithubService } from "../github/github.service.js";
 import { GithubClientService } from "../github/github-client.service.js";
-import { SyncStatus, SyncTrigger } from "@prisma/client";
+import { RepositorySyncService } from "./repository-sync.service.js";
+import { SyncTrigger } from "@prisma/client";
 
 @Injectable()
 export class RepositoriesService {
@@ -15,7 +11,26 @@ export class RepositoriesService {
     private readonly prisma: PrismaService,
     private readonly githubService: GithubService,
     private readonly githubClient: GithubClientService,
+    private readonly repositorySyncService: RepositorySyncService,
   ) {}
+
+  private async verifyOwnership(userId: string, repositoryId: string) {
+    const connection = await this.prisma.repositoryConnection.findUnique({
+      where: {
+        userId_repositoryId: {
+          userId,
+          repositoryId,
+        },
+      },
+      include: { repository: true },
+    });
+
+    if (!connection || connection.disconnectedAt) {
+      throw new NotFoundException("Repository not found");
+    }
+
+    return connection;
+  }
 
   async getAvailableFromGithub(userId: string, page = 1, perPage = 30) {
     const token = await this.githubService.getDecryptedToken(userId);
@@ -60,6 +75,20 @@ export class RepositoriesService {
           defaultBranch: githubRepo.defaultBranch,
           visibility: githubRepo.visibility,
           isPrivate: githubRepo.isPrivate,
+          language: githubRepo.language,
+          stars: githubRepo.stargazersCount,
+          forks: githubRepo.forksCount,
+          isArchived: githubRepo.archived,
+        },
+      });
+    } else {
+      repository = await this.prisma.repository.update({
+        where: { id: repository.id },
+        data: {
+          language: githubRepo.language,
+          stars: githubRepo.stargazersCount,
+          forks: githubRepo.forksCount,
+          isArchived: githubRepo.archived,
         },
       });
     }
@@ -89,19 +118,10 @@ export class RepositoriesService {
       });
     }
 
-    await this.prisma.repositorySync.create({
-      data: {
-        repositoryId: repository.id,
-        status: SyncStatus.SUCCESS,
-        trigger: SyncTrigger.OAUTH,
-        completedAt: new Date(),
-      },
-    });
-
-    await this.prisma.repository.update({
-      where: { id: repository.id },
-      data: { lastSyncedAt: new Date() },
-    });
+    // Trigger initial sync automatically upon connecting
+    await this.repositorySyncService
+      .syncRepository(userId, repository.id, SyncTrigger.INITIAL)
+      .catch(() => {});
 
     return {
       id: repository.id,
@@ -116,28 +136,7 @@ export class RepositoriesService {
   }
 
   async disconnectRepository(userId: string, id: string) {
-    const repository = await this.prisma.repository.findUnique({
-      where: { id },
-    });
-
-    if (!repository) {
-      throw new NotFoundException("Repository not found");
-    }
-
-    const connection = await this.prisma.repositoryConnection.findUnique({
-      where: {
-        userId_repositoryId: {
-          userId,
-          repositoryId: id,
-        },
-      },
-    });
-
-    if (!connection) {
-      throw new ForbiddenException(
-        "You do not have an active connection to this repository",
-      );
-    }
+    const connection = await this.verifyOwnership(userId, id);
 
     await this.prisma.repositoryConnection.delete({
       where: { id: connection.id },
@@ -153,7 +152,7 @@ export class RepositoriesService {
           where: { id },
         });
       } catch (err) {
-        // Ignore constraints
+        // Ignore constraint exceptions if any
       }
     }
 
@@ -163,95 +162,144 @@ export class RepositoriesService {
   async getConnectedRepositories(userId: string) {
     const connections = await this.prisma.repositoryConnection.findMany({
       where: { userId },
-      include: { repository: true },
+      include: {
+        repository: {
+          include: {
+            _count: {
+              select: { files: true },
+            },
+            syncs: {
+              take: 1,
+              orderBy: { startedAt: "desc" },
+            },
+          },
+        },
+      },
       orderBy: { connectedAt: "desc" },
     });
 
-    return connections.map((conn) => ({
-      id: conn.repository.id,
-      githubRepositoryId: conn.repository.githubRepositoryId,
-      name: conn.repository.name,
-      fullName: conn.repository.fullName,
-      owner: conn.repository.ownerLogin,
-      visibility: conn.repository.visibility,
-      defaultBranch: conn.repository.defaultBranch,
-      url: conn.repository.htmlUrl,
-      connectedAt: conn.connectedAt,
-      lastSyncedAt: conn.repository.lastSyncedAt,
-    }));
+    return connections.map((conn) => {
+      const repo = conn.repository;
+      const latestSync = repo.syncs[0];
+      return {
+        id: repo.id,
+        githubRepositoryId: repo.githubRepositoryId,
+        name: repo.name,
+        fullName: repo.fullName,
+        owner: repo.ownerLogin,
+        description: repo.description,
+        visibility: repo.visibility,
+        defaultBranch: repo.defaultBranch,
+        language: repo.language,
+        stars: repo.stars,
+        forks: repo.forks,
+        isArchived: repo.isArchived,
+        url: repo.htmlUrl,
+        connectedAt: conn.connectedAt,
+        lastSyncedAt: repo.lastSyncedAt,
+        fileCount: repo._count.files,
+        syncStatus: latestSync?.status || null,
+      };
+    });
+  }
+
+  async getRepositoryById(userId: string, id: string) {
+    const connection = await this.verifyOwnership(userId, id);
+    const repo = connection.repository;
+
+    const [fileCount, latestSync] = await Promise.all([
+      this.prisma.repositoryFile.count({ where: { repositoryId: id } }),
+      this.prisma.repositorySync.findFirst({
+        where: { repositoryId: id },
+        orderBy: { startedAt: "desc" },
+      }),
+    ]);
+
+    return {
+      id: repo.id,
+      githubRepositoryId: repo.githubRepositoryId,
+      name: repo.name,
+      fullName: repo.fullName,
+      owner: repo.ownerLogin,
+      ownerLogin: repo.ownerLogin,
+      description: repo.description,
+      defaultBranch: repo.defaultBranch,
+      visibility: repo.visibility,
+      isPrivate: repo.isPrivate,
+      language: repo.language,
+      stars: repo.stars,
+      forks: repo.forks,
+      isArchived: repo.isArchived,
+      htmlUrl: repo.htmlUrl,
+      lastSyncedAt: repo.lastSyncedAt,
+      fileCount,
+      syncStatus: latestSync?.status || null,
+      lastSync: latestSync
+        ? {
+            id: latestSync.id,
+            status: latestSync.status,
+            trigger: latestSync.trigger,
+            startedAt: latestSync.startedAt,
+            completedAt: latestSync.completedAt,
+            filesDiscovered: latestSync.filesDiscovered,
+            filesProcessed: latestSync.filesProcessed,
+            errorMessage: latestSync.errorMessage,
+          }
+        : null,
+    };
+  }
+
+  async getRepositorySyncs(userId: string, id: string, limit = 10) {
+    await this.verifyOwnership(userId, id);
+
+    const safeLimit = Math.min(Math.max(1, limit), 50);
+    return this.prisma.repositorySync.findMany({
+      where: { repositoryId: id },
+      take: safeLimit,
+      orderBy: { startedAt: "desc" },
+    });
+  }
+
+  async getRepositoryTree(
+    userId: string,
+    id: string,
+    path?: string,
+    limit = 100,
+  ) {
+    await this.verifyOwnership(userId, id);
+
+    const safeLimit = Math.min(Math.max(1, limit), 500);
+    const where: any = { repositoryId: id };
+
+    if (path) {
+      const cleanPath = path.replace(/\/$/, "");
+      where.OR = [
+        { parentPath: cleanPath },
+        { path: { startsWith: `${cleanPath}/` } },
+        { path: cleanPath },
+      ];
+    }
+
+    const [files, totalCount] = await Promise.all([
+      this.prisma.repositoryFile.findMany({
+        where,
+        take: safeLimit,
+        orderBy: [{ type: "asc" }, { path: "asc" }],
+      }),
+      this.prisma.repositoryFile.count({ where }),
+    ]);
+
+    return {
+      files,
+      totalCount,
+    };
   }
 
   async syncRepositoryMetadata(userId: string, id: string) {
-    const connection = await this.prisma.repositoryConnection.findUnique({
-      where: {
-        userId_repositoryId: {
-          userId,
-          repositoryId: id,
-        },
-      },
-      include: { repository: true },
-    });
-
-    if (!connection) {
-      throw new ForbiddenException("You are not connected to this repository");
-    }
-
-    const token = await this.githubService.getDecryptedToken(userId);
-    const repo = connection.repository;
-
-    const sync = await this.prisma.repositorySync.create({
-      data: {
-        repositoryId: repo.id,
-        status: SyncStatus.RUNNING,
-        trigger: SyncTrigger.MANUAL,
-      },
-    });
-
-    try {
-      const freshMeta = await this.githubClient.getRepository(
-        token,
-        repo.ownerLogin,
-        repo.name,
-      );
-
-      await this.prisma.repository.update({
-        where: { id: repo.id },
-        data: {
-          ownerLogin: freshMeta.ownerLogin,
-          name: freshMeta.name,
-          fullName: freshMeta.fullName,
-          description: freshMeta.description,
-          htmlUrl: freshMeta.htmlUrl,
-          defaultBranch: freshMeta.defaultBranch,
-          visibility: freshMeta.visibility,
-          isPrivate: freshMeta.isPrivate,
-          lastSyncedAt: new Date(),
-        },
-      });
-
-      await this.prisma.repositorySync.update({
-        where: { id: sync.id },
-        data: {
-          status: SyncStatus.SUCCESS,
-          completedAt: new Date(),
-        },
-      });
-
-      return {
-        status: "SUCCESS",
-        lastSyncedAt: new Date(),
-      };
-    } catch (err: any) {
-      await this.prisma.repositorySync.update({
-        where: { id: sync.id },
-        data: {
-          status: SyncStatus.FAILED,
-          errorMessage: err.message,
-          completedAt: new Date(),
-        },
-      });
-
-      throw new BadRequestException(`Repository sync failed: ${err.message}`);
-    }
+    return this.repositorySyncService.syncRepository(
+      userId,
+      id,
+      SyncTrigger.MANUAL,
+    );
   }
 }

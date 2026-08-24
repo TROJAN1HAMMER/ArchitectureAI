@@ -24,16 +24,17 @@ ArchitectAI aims to bridge the gap between abstract software architecture and ac
 
 ## Current Status
 
-**Active Version**: `v0.1.0-foundation`  
-The project has completed **Phase 1**, **Phase 2**, and the foundational layer of **Phase 3**. The system features a production-ready authentication foundation, platform infrastructure, GitHub OAuth integration scaffolding, and a fully functional dark/light theme UI:
+**Active Version**: `v0.1.2-repository-intelligence`  
+The project has completed **Phase 1**, **Phase 2**, **Phase 2.5**, **Phase 3**, and **Phase 4: Repository Intelligence Foundation**. The system features a production-ready authentication foundation, platform infrastructure, GitHub OAuth integration, Redis concurrency locking, full repository metadata and file tree ingestion, and interactive UI views:
 
 - **Authentication Foundation**: OWASP-aligned `argon2id` passwords, short-lived (15-min) in-memory JWTs, 7-day rotated `HttpOnly` refresh cookies, and session-level database auditing.
-- **Central Redis Cache**: Global Redis connections via `ioredis` with exponential backoff retries and clean process shutdowns.
+- **Central Redis Cache & Locking**: Global Redis connections via `ioredis` with exponential backoff retries, clean shutdowns, and repository sync concurrency locks (`repository:sync-lock:<id>`).
 - **Request Correlation**: Correlation IDs (`X-Request-ID`) mapped via `AsyncLocalStorage` and automatically printed in logs.
 - **Structured Logging**: Logging interceptors capturing HTTP method, path, response codes, and durations.
 - **Security Hardening**: Secure headers (Helmet) and strict comma-separated origins CORS checking.
 - **Health Checks**: Liveness and readiness endpoints checking Prisma DB and Redis cache availability status.
-- **GitHub Integration (Phase 3 Foundation)**: GitHub OAuth service, repository module scaffolding, AES-256 encrypted token storage, and Prisma migration for linked repositories.
+- **GitHub Integration (Phase 3)**: GitHub OAuth service, repository module scaffolding, AES-256 encrypted token storage, and Prisma migration for linked repositories.
+- **Repository Intelligence Foundation (Phase 4)**: Normalized file tree ingestion (`RepositoryFile`), idempotent upserts, sync lifecycle tracking (`PENDING`/`RUNNING`/`SUCCESS`/`FAILED`), and REST endpoints for repository details, sync history, and tree navigation.
 - **Dark / Light Theme**: Full site-wide theme toggling via `next-themes` with smooth animated transitions across all pages and components.
 
 ---
@@ -48,8 +49,10 @@ graph TD
         UI["React 19 Pages"]
         Axios["Axios client"]
         Theme["next-themes (Dark/Light)"]
+        TreeUI["RepositoryTree Component"]
         UI --> Axios
         UI --> Theme
+        UI --> TreeUI
     end
 
     subgraph Shared ["Domain Common"]
@@ -62,6 +65,7 @@ graph TD
         Auth["Auth Module"]
         Users["Users Module"]
         Repo["Repository Module"]
+        RepoSync["RepositorySyncService"]
         GitHub["GitHub Module"]
         PrismaService["Prisma Client Service"]
         LoggerService["Winston Logger Wrapper"]
@@ -73,16 +77,19 @@ graph TD
         App --> GitHub
         App --> PrismaService
         App --> LoggerService
+
+        Repo --> RepoSync
+        RepoSync --> GitHub
     end
 
     subgraph Persistence ["Infra Containers"]
-        Postgres[("PostgreSQL")]
-        Redis[("Redis Cache")]
+        Postgres[("PostgreSQL (RepositoryFile, Syncs)")]
+        Redis[("Redis (Sync Lock EX 600 NX)")]
     end
 
     Axios -->|REST API HTTP| App
     PrismaService -->|ORM SQL| Postgres
-    App -->|Cache/Queues| Redis
+    RepoSync -->|Lock/Unlock| Redis
 
     UI -..->|Imports| SharedLib
     App -..->|Imports| SharedLib
@@ -131,8 +138,8 @@ architect-ai/
 │
 ├── frontend/               # Next.js client application
 │   ├── src/
-│   │   ├── app/            # App Router pages (/dashboard, /login, /repositories, /settings)
-│   │   ├── components/     # Layout shells (Header, Sidebar, ThemeToggle)
+│   │   ├── app/            # App Router pages (/dashboard, /login, /repositories, /repositories/[id], /settings)
+│   │   ├── components/     # Layout shells, repository components (Card, SyncButton, SyncStatus, Tree)
 │   │   ├── providers/      # Query client & auth provider setup
 │   │   └── services/       # Central Axios api client instance
 │   └── tsconfig.json       # Extends root tsconfig.base.json
@@ -140,7 +147,7 @@ architect-ai/
 ├── backend/                # NestJS API application
 │   ├── prisma/             # Schema, migrations, and seed file
 │   ├── src/
-│   │   ├── common/         # Zod configs, Winston loggers, exception filters, encryption utils
+│   │   ├── common/         # Zod configs, Winston loggers, exception filters, encryption utils, Redis service
 │   │   ├── modules/        # Domain boundaries (health, auth, users, repository, github)
 │   │   └── main.ts         # Server bootstrap, Swagger setup, pipes configuration
 │   └── tsconfig.json       # Extends root tsconfig.base.json
@@ -151,7 +158,9 @@ architect-ai/
 │
 ├── docs/
 │   ├── architecture/       # System diagrams and overview documents
-│   └── adr/                # Architecture Decision Records
+│   ├── adr/                # Architecture Decision Records (ADR-001, ADR-003, ADR-004)
+│   ├── releases/           # Release notes (v0.1.2-repository-intelligence.md)
+│   └── phases/             # Phase walkthroughs (phase-4-walkthrough.md)
 │
 ├── docker-compose.yml      # Core database and caching infrastructure
 ├── Makefile                # Developer workflow commands
@@ -248,6 +257,7 @@ We track foundational tech decisions using Architecture Decision Records. Refer 
 
 - [ADR-001: Architecture Foundation](docs/adr/ADR-001-architecture-foundation.md)
 - [ADR-003: GitHub Integration](docs/adr/ADR-003-github-integration.md)
+- [ADR-004: Repository Intelligence Foundation](docs/adr/ADR-004-repository-intelligence-foundation.md)
 
 ---
 
@@ -282,10 +292,8 @@ Please follow the rules below when contributing to ArchitectAI:
 - [x] **Phase 1** — Project Foundation
 - [x] **Phase 2** — Authentication & Identity
 - [x] **Phase 2.5** — Platform Infrastructure (Redis, request correlation, health checks, security hardening)
-- [x] **Phase 3 (foundation)** — GitHub Integration & Repository Management (OAuth service, AES-256 token encryption, Prisma migration, repository module scaffolding)
-- [x] **UI** — Dark / Light theme toggle with system preference detection and smooth transitions
-- [ ] **Phase 3 (complete)** — Full GitHub OAuth flow & repository sync
-- [ ] **Phase 4** — Repository Intelligence Pipeline
+- [x] **Phase 3** — GitHub Integration & Repository Management (OAuth service, AES-256 token encryption, Prisma migration)
+- [x] **Phase 4** — Repository Intelligence Foundation (Metadata, file tree ingestion, Redis lock, repository detail UI)
 - [ ] **Phase 5** — Knowledge Graph
 - [ ] **Phase 6** — Embedding & Semantic Search
 - [ ] **Phase 7** — AI Repository Chat

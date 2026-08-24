@@ -23,6 +23,7 @@ enum SyncTrigger {
   MANUAL
   OAUTH
   SYSTEM
+  INITIAL
 }
 
 model User {
@@ -86,14 +87,38 @@ model Repository {
   defaultBranch      String
   visibility         String
   isPrivate          Boolean
+  language           String?
+  stars              Int                    @default(0)
+  forks              Int                    @default(0)
+  isArchived         Boolean                @default(false)
   connectedAt        DateTime               @default(now())
   lastSyncedAt       DateTime?
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
   connections        RepositoryConnection[]
   syncs              RepositorySync[]
+  files              RepositoryFile[]
 
   @@index([githubRepositoryId])
+}
+
+model RepositoryFile {
+  id           String     @id @default(uuid())
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  path         String
+  name         String
+  extension    String?
+  size         Int        @default(0)
+  sha          String
+  type         String     @default("blob")
+  parentPath   String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([repositoryId, path])
+  @@index([repositoryId])
+  @@index([path])
 }
 
 model RepositoryConnection {
@@ -113,16 +138,19 @@ model RepositoryConnection {
 }
 
 model RepositorySync {
-  id           String      @id @default(uuid())
-  repositoryId String
-  repository   Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  status       SyncStatus
-  trigger      SyncTrigger
-  startedAt    DateTime    @default(now())
-  completedAt  DateTime?
-  errorMessage String?
-  metadata     Json?
-  createdAt    DateTime    @default(now())
+  id              String      @id @default(uuid())
+  repositoryId    String
+  repository      Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  status          SyncStatus
+  trigger         SyncTrigger
+  startedAt       DateTime    @default(now())
+  completedAt     DateTime?
+  filesDiscovered Int         @default(0)
+  filesProcessed  Int         @default(0)
+  errorMessage    String?
+  metadata        Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   @@index([repositoryId])
   @@index([status])

@@ -111,10 +111,92 @@ export class GithubClientService {
         defaultBranch: data.default_branch || "main",
         visibility: data.visibility || "public",
         isPrivate: data.private,
+        language: data.language || null,
+        stargazersCount: data.stargazers_count || 0,
+        forksCount: data.forks_count || 0,
+        archived: data.archived || false,
       };
     } catch (err: any) {
       throw new BadRequestException(
         `Failed to retrieve GitHub repository: ${err.message}`,
+      );
+    }
+  }
+
+  async getRepositoryTree(
+    token: string,
+    owner: string,
+    repo: string,
+    branch: string,
+  ) {
+    try {
+      const octokit = new Octokit({ auth: token });
+      const { data } = await octokit.rest.git.getTree({
+        owner,
+        repo,
+        tree_sha: branch,
+        recursive: "1",
+      });
+
+      if (!data.tree || !Array.isArray(data.tree)) {
+        return [];
+      }
+
+      return data.tree
+        .filter(
+          (item: any) =>
+            item.path && (item.type === "blob" || item.type === "tree"),
+        )
+        .map((item: any) => {
+          const pathParts = item.path.split("/");
+          const name = pathParts[pathParts.length - 1];
+          const parentPath =
+            pathParts.length > 1 ? pathParts.slice(0, -1).join("/") : null;
+
+          let extension: string | null = null;
+          if (item.type === "blob" && name.includes(".")) {
+            const extParts = name.split(".");
+            if (extParts.length > 1) {
+              extension = extParts[extParts.length - 1].toLowerCase();
+            }
+          }
+
+          return {
+            path: item.path,
+            name,
+            extension,
+            size: item.size || 0,
+            sha: item.sha || "",
+            type: item.type === "tree" ? "tree" : "blob",
+            parentPath,
+          };
+        });
+    } catch (err: any) {
+      throw new BadRequestException(
+        `Failed to retrieve GitHub repository tree: ${err.message}`,
+      );
+    }
+  }
+
+  async getFileContent(
+    token: string,
+    owner: string,
+    repo: string,
+    path: string,
+    ref?: string,
+  ) {
+    try {
+      const octokit = new Octokit({ auth: token });
+      const { data } = await octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path,
+        ref,
+      });
+      return data;
+    } catch (err: any) {
+      throw new BadRequestException(
+        `Failed to retrieve GitHub file content: ${err.message}`,
       );
     }
   }

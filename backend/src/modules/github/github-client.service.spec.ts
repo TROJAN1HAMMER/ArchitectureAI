@@ -44,6 +44,30 @@ jest.mock("octokit", () => {
                 default_branch: "main",
                 visibility: "public",
                 private: false,
+                language: "TypeScript",
+                stargazers_count: 42,
+                forks_count: 5,
+                archived: false,
+              },
+            }),
+          },
+          git: {
+            getTree: jest.fn().mockResolvedValue({
+              data: {
+                tree: [
+                  {
+                    path: "src",
+                    type: "tree",
+                    sha: "tree-sha-1",
+                    size: 0,
+                  },
+                  {
+                    path: "src/main.ts",
+                    type: "blob",
+                    sha: "blob-sha-2",
+                    size: 1024,
+                  },
+                ],
               },
             }),
           },
@@ -105,7 +129,7 @@ describe("GithubClientService Unit Tests", () => {
     expect(repos[0].name).toBe("test-repo");
   });
 
-  it("should retrieve single repository details successfully", async () => {
+  it("should retrieve single repository details with extended attributes successfully", async () => {
     const repo = await service.getRepository(
       "token-123",
       "test-user",
@@ -113,5 +137,37 @@ describe("GithubClientService Unit Tests", () => {
     );
     expect(repo.githubRepositoryId).toBe("9999");
     expect(repo.name).toBe("test-repo");
+    expect(repo.language).toBe("TypeScript");
+    expect(repo.stargazersCount).toBe(42);
+    expect(repo.forksCount).toBe(5);
+    expect(repo.archived).toBe(false);
+  });
+
+  it("should retrieve repository file tree successfully", async () => {
+    const tree = await service.getRepositoryTree(
+      "token-123",
+      "test-user",
+      "test-repo",
+      "main",
+    );
+    expect(tree.length).toBe(2);
+    expect(tree[0]).toEqual({
+      path: "src",
+      name: "src",
+      extension: null,
+      size: 0,
+      sha: "tree-sha-1",
+      type: "tree",
+      parentPath: null,
+    });
+    expect(tree[1]).toEqual({
+      path: "src/main.ts",
+      name: "main.ts",
+      extension: "ts",
+      size: 1024,
+      sha: "blob-sha-2",
+      type: "blob",
+      parentPath: "src",
+    });
   });
 });
