@@ -16,15 +16,16 @@ The project is designed as a **Modular Monolith** using a monorepo structure man
 ```text
 +--------------------------------------------------------+
 |                  Next.js 15 Frontend                   |
-| (App Router, ThemeToggle, TreeView, GraphUI, SearchUI, AIChat, ArchAudit, SysDesignStudio, GovernanceUI) |
+| (App Router, ThemeToggle, TreeView, GraphUI, SearchUI, AIChat, ArchAudit, SysDesignStudio, GovernanceUI, RemediationUI) |
 +---------------------------+----------------------------+
                             |
                             | HTTP / REST (Axios, 429/500 Handling, X-Request-ID)
                             v
 +---------------------------+----------------------------+      +--------------------------+
 |                  NestJS v10 Backend                    |<---->| @architect-ai/shared     |
-| (Helmet, Throttler, Filter, Telemetry, RedisLock)      |      | (Types, Schemas, Consts) |
-+-----+---------------------+----------------------+-----+      +--------------------------+
+| (Helmet, Throttler, Filter, Telemetry, RedisLock,      |      | (Types, Schemas, Consts) |
+|  Remediation Planner/Safety/Validator/Executor)        |      +--------------------------+
++-----+---------------------+----------------------+-----+
       |                     |                      |
       | Prisma ORM          | Redis Lock (EX 600)  | Octokit GitHub REST
       v                     v                      v
@@ -34,7 +35,7 @@ The project is designed as a **Modular Monolith** using a monorepo structure man
 +-----------+         +-----------+          +-----------+
 ```
 
-## Repository Intelligence, Knowledge Graph, Auditing, RAG, C4 Diagrams, Governance & Hardening Flow
+## Repository Intelligence, Knowledge Graph, Auditing, RAG, C4 Diagrams, Governance, Remediation & Hardening Flow
 
 ```text
 HTTP Request (X-Request-ID Header)
@@ -49,9 +50,13 @@ Repository Connection Ownership Verification (Multi-tenant IDOR check -> returns
    ↓
 RedisLockService (Safe token-matched lock check EX 600 NX -> returns 409 if locked)
    ↓
-TelemetryService (Span Traces: repository.sync, graph.build, semantic.index, ai.rag, architecture.analyze, system_design.generate, governance.review)
+TelemetryService (Span Traces: repository.sync, graph.build, semantic.index, ai.rag, architecture.analyze, system_design.generate, governance.review, remediation.plan)
    ↓
-Service Workflows (RepositorySync, KnowledgeGraph, SemanticIndex, RAG, ArchitectureAnalysis, SystemDesign, GovernanceReview)
+Service Workflows (RepositorySync, KnowledgeGraph, SemanticIndex, RAG, ArchitectureAnalysis, SystemDesign, GovernanceReview, RemediationService)
+   ↓
+Remediation Pipeline (Planner -> Safety -> Patch Generator -> Sandbox Validator -> Executor Git Branch + PR Creation)
+   ↓
+Human Approval Boundary (PR Opened -> Human Review Required -> No Auto-Merge)
    ↓
 AllExceptionsFilter & LoggerService (Standard Error Envelope formatting with top-level requestId & credential masking)
    ↓
@@ -60,7 +65,7 @@ HTTP Response (X-Request-ID Header + JSON Envelope)
 
 ## Folder Structure
 
-- `frontend/`: React components, views, layout, client-side hooks, AI chat, Architecture Audit, System Design Studio, and Governance Dashboard UI.
-- `backend/`: Core business logic services, controllers, platform security, rate limiting, exception filters, AI/RAG services, architecture engine, system design engine, governance engine, telemetry, and health probes.
+- `frontend/`: React components, views, layout, client-side hooks, AI chat, Architecture Audit, System Design Studio, Governance Dashboard, and Remediation UI.
+- `backend/`: Core business logic services, controllers, platform security, rate limiting, exception filters, AI/RAG services, architecture engine, system design engine, governance engine, remediation engine, telemetry, and health probes.
 - `packages/shared/`: Cross-boundary validation schemas, TypeScript interfaces, and shared constants.
 - `docs/`: ADR logs, architecture design docs, release notes, and phase walkthroughs.

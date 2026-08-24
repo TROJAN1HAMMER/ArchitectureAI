@@ -17,6 +17,7 @@ import { AiModule } from "./modules/ai/ai.module.js";
 import { ArchitectureModule } from "./modules/architecture/architecture.module.js";
 import { SystemDesignModule } from "./modules/system-design/system-design.module.js";
 import { GovernanceModule } from "./modules/governance/governance.module.js";
+import { RemediationModule } from "./modules/remediation/remediation.module.js";
 import { RedisModule } from "./common/redis/redis.module.js";
 import { TelemetryModule } from "./common/telemetry/telemetry.module.js";
 import { RequestContextModule } from "./common/request-context/request-context.module.js";
@@ -57,6 +58,7 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter.js";
     ArchitectureModule,
     SystemDesignModule,
     GovernanceModule,
+    RemediationModule,
     RedisModule,
     TelemetryModule,
     RequestContextModule,

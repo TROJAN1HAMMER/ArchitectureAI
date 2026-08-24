@@ -155,6 +155,37 @@ enum GovernanceReviewStatus {
   FAILED
 }
 
+enum RemediationStatus {
+  PROPOSED
+  PLANNING
+  GENERATING
+  VALIDATING
+  READY
+  FAILED
+  REJECTED
+  APPLIED
+}
+
+enum RemediationType {
+  CIRCULAR_DEPENDENCY_FIX
+  BOUNDARY_VIOLATION_FIX
+  HIGH_COUPLING_REFACTOR
+  DEPENDENCY_HOTSPOT_REFACTOR
+  ORPHAN_COMPONENT_FIX
+  LARGE_COMPONENT_REFACTOR
+  RISKY_DEPENDENCY_FIX
+  ARCHITECTURAL_DRIFT_FIX
+  GOVERNANCE_VIOLATION_FIX
+  MANUAL_REFACTOR
+}
+
+enum RemediationRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 model User {
   id            String                 @id @default(uuid())
   email         String                 @unique
@@ -170,6 +201,7 @@ model User {
   gitHubAccount GitHubAccount?
   connections   RepositoryConnection[]
   conversations Conversation[]
+  remediations  RemediationPlan[]
 
   @@index([email])
 }
@@ -240,6 +272,7 @@ model Repository {
   diffs                ArchitectureDiff[]
   governanceRules      GovernanceRule[]
   governanceViolations GovernanceViolation[]
+  remediations         RemediationPlan[]
 
   @@index([githubRepositoryId])
 }
@@ -463,6 +496,7 @@ model ArchitectureFinding {
   evidence     Json?
   metadata     Json?
   createdAt    DateTime                    @default(now())
+  remediations RemediationPlan[]
 
   @@unique([analysisId, type, title, sourceNodeId, targetNodeId])
   @@index([analysisId])
@@ -702,4 +736,86 @@ model GovernanceViolation {
   @@index([ruleId])
   @@index([severity])
   @@index([status])
+}
+
+model RemediationPlan {
+  id              String                  @id @default(uuid())
+  repositoryId    String
+  repository      Repository              @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  findingId       String?
+  finding         ArchitectureFinding?    @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  userId          String
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            RemediationType
+  status          RemediationStatus       @default(PROPOSED)
+  riskLevel       RemediationRiskLevel    @default(LOW)
+  title           String
+  description     String
+  rationale       String
+  proposedChanges Json?
+  affectedFiles   Json?
+  validationPlan  Json?
+  estimatedImpact Json?
+  errorMessage    String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  patches         RemediationPatch[]
+  validations     RemediationValidation[]
+  executions      RemediationExecution[]
+
+  @@index([repositoryId])
+  @@index([findingId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model RemediationPatch {
+  id                  String          @id @default(uuid())
+  remediationId       String
+  remediationPlan     RemediationPlan @relation(fields: [remediationId], references: [id], onDelete: Cascade)
+  filePath            String
+  originalHash        String
+  originalContentHash String
+  patchedContentHash  String
+  diff                String
+  patchMetadata       Json?
+  createdAt           DateTime        @default(now())
+
+  @@index([remediationId])
+  @@index([filePath])
+}
+
+model RemediationValidation {
+  id              String          @id @default(uuid())
+  remediationId   String
+  remediationPlan RemediationPlan @relation(fields: [remediationId], references: [id], onDelete: Cascade)
+  status          String
+  type            String
+  command         String
+  passed          Boolean
+  output          String?
+  durationMs      Int?
+  metadata        Json?
+  createdAt       DateTime        @default(now())
+
+  @@index([remediationId])
+  @@index([passed])
+}
+
+model RemediationExecution {
+  id                String          @id @default(uuid())
+  remediationId     String
+  remediationPlan   RemediationPlan @relation(fields: [remediationId], references: [id], onDelete: Cascade)
+  branchName        String
+  commitSha         String?
+  pullRequestNumber Int?
+  pullRequestUrl    String?
+  status            String
+  errorMessage      String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([remediationId])
+  @@index([branchName])
 }

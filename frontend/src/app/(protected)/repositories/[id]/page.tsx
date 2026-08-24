@@ -58,6 +58,7 @@ import {
   GovernanceViolationTable,
   GovernanceViolationItem,
 } from "@/components/governance/GovernanceViolationTable";
+import { RemediationOverview } from "@/components/remediation/RemediationOverview";
 import {
   GovernanceRules,
   GovernanceRuleItem,
@@ -112,6 +113,7 @@ export default function RepositoryDetailPage({
 
   const [activeTab, setActiveTab] = useState<
     | "governance"
+    | "remediation"
     | "system-design"
     | "architecture"
     | "ai"
@@ -476,6 +478,17 @@ export default function RepositoryDetailPage({
         </button>
 
         <button
+          onClick={() => setActiveTab("remediation")}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
+            activeTab === "remediation"
+              ? "border-amber-600 text-amber-600 dark:border-amber-400 dark:text-amber-400 font-semibold"
+              : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          }`}
+        >
+          Remediation 🔧
+        </button>
+
+        <button
           onClick={() => setActiveTab("architecture")}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition whitespace-nowrap ${
             activeTab === "architecture"
@@ -558,6 +571,12 @@ export default function RepositoryDetailPage({
           <ArchitectureSnapshotList snapshots={govSnapshots} />
 
           <GovernanceRules rules={govRules} onToggleRule={handleToggleRule} />
+        </div>
+      )}
+
+      {activeTab === "remediation" && (
+        <div className="space-y-6">
+          <RemediationOverview repositoryId={repo.id} />
         </div>
       )}
 

@@ -42,6 +42,7 @@ import { GovernanceRuleService } from "../governance/governance-rule.service.js"
 import { GovernanceEngineService } from "../governance/governance-engine.service.js";
 import { GovernanceReviewService } from "../governance/governance-review.service.js";
 import { GovernanceContextService } from "../governance/governance-context.service.js";
+import { RemediationContextService } from "../remediation/remediation-context.service.js";
 import { ConfigModule } from "@nestjs/config";
 
 describe("Phase 11 Production Readiness End-to-End Integration Test", () => {
@@ -137,6 +138,7 @@ describe("Phase 11 Production Readiness End-to-End Integration Test", () => {
         GovernanceEngineService,
         GovernanceReviewService,
         GovernanceContextService,
+        RemediationContextService,
         {
           provide: GithubClientService,
           useValue: {

@@ -6,6 +6,7 @@ import { KnowledgeGraphModule } from "../knowledge-graph/knowledge-graph.module.
 import { ArchitectureModule } from "../architecture/architecture.module.js";
 import { SystemDesignModule } from "../system-design/system-design.module.js";
 import { GovernanceModule } from "../governance/governance.module.js";
+import { RemediationModule } from "../remediation/remediation.module.js";
 import { AiController } from "./ai.controller.js";
 import { RagService } from "./rag/rag.service.js";
 import { QueryUnderstandingService } from "./rag/query-understanding.service.js";
@@ -25,6 +26,7 @@ import { LLMProviderFactory } from "./llm/llm-provider.factory.js";
     ArchitectureModule,
     SystemDesignModule,
     GovernanceModule,
+    RemediationModule,
   ],
   controllers: [AiController],
   providers: [

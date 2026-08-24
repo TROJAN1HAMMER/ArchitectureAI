@@ -9,6 +9,7 @@ import { ContextBuilderService } from "./context-builder.service.js";
 import { ArchitectureContextService } from "../../architecture/architecture-context.service.js";
 import { SystemDesignContextService } from "../../system-design/system-design-context.service.js";
 import { GovernanceContextService } from "../../governance/governance-context.service.js";
+import { RemediationContextService } from "../../remediation/remediation-context.service.js";
 import { LLMProviderFactory } from "../llm/llm-provider.factory.js";
 import { ConversationService } from "../conversation/conversation.service.js";
 import { ConflictException } from "@nestjs/common";
@@ -121,11 +122,11 @@ describe("RagService Unit Tests", () => {
         },
         {
           provide: GovernanceContextService,
-          useValue: {
-            getGovernanceContext: jest
-              .fn()
-              .mockResolvedValue("Mock Governance Context"),
-          },
+          useValue: { getGovernanceContext: jest.fn().mockResolvedValue("") },
+        },
+        {
+          provide: RemediationContextService,
+          useValue: { getRemediationContext: jest.fn().mockResolvedValue("") },
         },
         { provide: LLMProviderFactory, useValue: mockLLMProviderFactory },
         { provide: ConversationService, useValue: mockConversationService },

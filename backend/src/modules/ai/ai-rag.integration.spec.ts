@@ -34,6 +34,7 @@ import { ArchitectureSnapshotService } from "../governance/architecture-snapshot
 import { ArchitectureDiffService } from "../governance/architecture-diff.service.js";
 import { GovernanceReviewService } from "../governance/governance-review.service.js";
 import { GovernanceContextService } from "../governance/governance-context.service.js";
+import { RemediationContextService } from "../remediation/remediation-context.service.js";
 import { ConfigModule } from "@nestjs/config";
 
 describe("Phase 7 AI Repository RAG Integration Test", () => {
@@ -133,6 +134,7 @@ describe("Phase 7 AI Repository RAG Integration Test", () => {
         ArchitectureSnapshotService,
         GovernanceReviewService,
         GovernanceContextService,
+        RemediationContextService,
         MockLLMProviderService,
         LLMProviderFactory,
         ConversationService,
